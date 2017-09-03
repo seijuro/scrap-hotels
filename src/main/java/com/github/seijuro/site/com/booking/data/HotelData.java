@@ -1,6 +1,7 @@
 package com.github.seijuro.site.com.booking.data;
 
 import com.github.seijuro.CSVConvertable;
+import com.github.seijuro.TSVConvertable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -11,7 +12,7 @@ import java.util.Collections;
 import java.util.List;
 
 @ToString
-public class HotelData implements CSVConvertable {
+public class HotelData implements CSVConvertable, TSVConvertable {
     @Getter
     private final String domain;
     @Getter
@@ -73,47 +74,46 @@ public class HotelData implements CSVConvertable {
         banner = builder.banner;
     }
 
-    @Override
-    public String recordSeperator() {
-        return System.lineSeparator();
-    }
-
-    @Override
-    public String columnSeperator() {
-        return "|";
-    }
-
-    public String toCSV() {
+    protected String format(String columnSeperator, String elementSeperator) {
         StringBuffer sb = new StringBuffer();
 
         sb.append(domain)
-                .append(columnSeperator()).append(destination)
-                .append(columnSeperator()).append(sort)
-                .append(columnSeperator()).append(startDate)
-                .append(columnSeperator()).append(endDate)
-                .append(columnSeperator()).append(id)
-                .append(columnSeperator()).append(name)
-                .append(columnSeperator()).append(price)
-                .append(columnSeperator()).append(score)
-                .append(columnSeperator()).append(clazz)
-                .append(columnSeperator()).append(tag)
-                .append(columnSeperator()).append(thumbUpIcon)
-                .append(columnSeperator()).append(linkURL);
+                .append(columnSeperator).append(destination)
+                .append(columnSeperator).append(sort)
+                .append(columnSeperator).append(startDate)
+                .append(columnSeperator).append(endDate)
+                .append(columnSeperator).append(id)
+                .append(columnSeperator).append(name)
+                .append(columnSeperator).append(price)
+                .append(columnSeperator).append(score)
+                .append(columnSeperator).append(clazz)
+                .append(columnSeperator).append(tag)
+                .append(columnSeperator).append(thumbUpIcon)
+                .append(columnSeperator).append(linkURL);
 
         //  conditions
-        sb.append(columnSeperator());
+        sb.append(columnSeperator);
         if (conditions.size() > 0) { sb.append(conditions.get(0)); }
-        for (int index = 1; index < conditions.size(); ++index) { sb.append(",").append(conditions.get(index)); }
+        for (int index = 1; index < conditions.size(); ++index) { sb.append(elementSeperator).append(conditions.get(index)); }
         //  ribbons
-        sb.append(columnSeperator());
+        sb.append(columnSeperator);
         if (ribbon.size() > 0) { sb.append(ribbon.get(0)); }
-        for (int index = 1; index < ribbon.size(); ++index) { sb.append(",").append(ribbon.get(index)); }
+        for (int index = 1; index < ribbon.size(); ++index) { sb.append(elementSeperator).append(ribbon.get(index)); }
         //  deals
-        sb.append(columnSeperator());
+        sb.append(columnSeperator);
         if (deal.size() > 0) { sb.append(deal.get(0)); }
-        for (int index = 1; index < deal.size(); ++index) { sb.append(",").append(deal.get(index)); }
+        for (int index = 1; index < deal.size(); ++index) { sb.append(elementSeperator).append(deal.get(index)); }
 
         return sb.toString();
+    }
+
+    @Override
+    public String toTSV() {
+        return format("\t", ",");
+    }
+
+    public String toCSV() {
+        return format(",", "\t");
     }
 
     public static class Builder {

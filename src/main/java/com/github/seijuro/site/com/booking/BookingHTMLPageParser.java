@@ -3,6 +3,7 @@ package com.github.seijuro.site.com.booking;
 import com.github.seijuro.parser.HTMLPageParser;
 import com.github.seijuro.site.com.booking.data.HotelData;
 import com.github.seijuro.writer.CSVFileWriter;
+import com.github.seijuro.writer.TSVFileWriter;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
@@ -30,7 +31,7 @@ public class BookingHTMLPageParser implements HTMLPageParser {
     }
 
     @Setter
-    private CSVFileWriter writer = null;
+    private TSVFileWriter writer = null;
     @Setter
     private String domain = StringUtils.EMPTY;
     @Setter

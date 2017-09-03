@@ -1,17 +1,17 @@
 package com.github.seijuro.writer;
 
-import com.github.seijuro.CSVConvertable;
+import com.github.seijuro.TSVConvertable;
 
 import java.io.*;
 import java.util.Objects;
 
-public class CSVFileWriter implements Closeable, AutoCloseable {
+public class TSVFileWriter implements Closeable, AutoCloseable {
     private final String filename;
     private final String targetDir;
 
     private BufferedWriter writer;
 
-    public CSVFileWriter(String targetDir, String filename) throws IOException {
+    public TSVFileWriter(String targetDir, String filename) throws IOException {
         this.targetDir = targetDir;
         this.filename = filename;
 
@@ -25,13 +25,12 @@ public class CSVFileWriter implements Closeable, AutoCloseable {
         writer = new BufferedWriter(new FileWriter(pathBuilder.toString(), true));
     }
 
-    public void write(CSVConvertable obj) throws IOException {
+    public void write(TSVConvertable obj) throws IOException {
         if (Objects.nonNull(writer)) {
-            writer.write(obj.toCSV());
+            writer.write(obj.toTSV());
             writer.write(System.lineSeparator());
         }
     }
-
 
     @Override
     public void close() throws IOException {

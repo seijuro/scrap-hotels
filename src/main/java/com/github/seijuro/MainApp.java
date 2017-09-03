@@ -5,6 +5,7 @@ import com.github.seijuro.http.rest.RestfulAPIResponse;
 import com.github.seijuro.search.query.Sort;
 import com.github.seijuro.site.com.booking.BookingHTMLPageParser;
 import com.github.seijuro.site.com.expedia.ExpediaComScraper;
+import com.github.seijuro.site.com.expedia.ExpediaHTMLPageParser;
 import com.github.seijuro.site.com.expedia.query.Date;
 import com.github.seijuro.site.com.expedia.query.Lodging;
 import com.github.seijuro.site.com.hotels.Destination;
@@ -12,6 +13,7 @@ import com.github.seijuro.site.com.hotels.property.query.QueryProperty;
 import com.github.seijuro.site.com.hotels.result.*;
 import com.github.seijuro.snapshot.*;
 import com.github.seijuro.writer.CSVFileWriter;
+import com.github.seijuro.writer.TSVFileWriter;
 import com.google.gson.Gson;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -59,9 +61,10 @@ public class MainApp {
 
     public static Sort[] getSortOrders_BookingCom() {
         Sort[] sortOrders = new Sort[] {
-                com.github.seijuro.site.com.hotels.SortOrder.BEST_SELLER,
-                com.github.seijuro.site.com.hotels.SortOrder.GUEST_RATING,
-                com.github.seijuro.site.com.hotels.SortOrder.STAR_RATING_HIGHEST_FIRST
+                com.github.seijuro.site.com.booking.query.Sort.RECOMMAND,
+                com.github.seijuro.site.com.booking.query.Sort.REVIEW_SCORE_AND_PRICE,
+                com.github.seijuro.site.com.booking.query.Sort.SCORE,
+                com.github.seijuro.site.com.booking.query.Sort.CLASS_DESC
         };
 
         return sortOrders;
@@ -75,11 +78,13 @@ public class MainApp {
         return destinations;
     }
 
-    public static Destination[] getDestinations_BookingCom() {
+    public static com.github.seijuro.search.query.Destination[] getDestinations_BookingCom() {
         Destination[] destinations = {
                 com.github.seijuro.site.com.hotels.Destination.SEOUL,
                 com.github.seijuro.site.com.hotels.Destination.JEJU,
-                com.github.seijuro.site.com.hotels.Destination.BALLY};
+                com.github.seijuro.site.com.hotels.Destination.BALLY,
+                com.github.seijuro.site.com.hotels.Destination.HAWAI
+        };
         return destinations;
     }
 
@@ -431,14 +436,14 @@ public class MainApp {
 
     public static void parseBookingHTMLPage(String filepath) {
         try {
-            BufferedReader reader = new BufferedReader(new FileReader(filepath));
-            BookingHTMLPageParser parser = new BookingHTMLPageParser();
-            CSVFileWriter writer = new CSVFileWriter(ROOT_DIR_BOOKING, "hotels.csv");
-
             String[] tokens = filepath.split(File.separator);
             String destinaion = tokens[tokens.length - 2];
             String sort = tokens[tokens.length - 3];
             String domain = tokens[tokens.length - 4];
+
+            BufferedReader reader = new BufferedReader(new FileReader(filepath));
+            BookingHTMLPageParser parser = new BookingHTMLPageParser();
+            TSVFileWriter writer = new TSVFileWriter(ROOT_DIR_BOOKING, String.format("%s_%s.tsv", destinaion, sort));
 
             parser.setDomain(domain);
             parser.setSort(sort);
@@ -465,7 +470,38 @@ public class MainApp {
     }
 
     public static void parseExpediaHTMLPage(String filepath) {
+        try {
+            String[] tokens = filepath.split(File.separator);
+            String destinaion = tokens[tokens.length - 2];
+            String sort = tokens[tokens.length - 3];
+            String domain = tokens[tokens.length - 4];
 
+            BufferedReader reader = new BufferedReader(new FileReader(filepath));
+            ExpediaHTMLPageParser parser = new ExpediaHTMLPageParser();
+            CSVFileWriter writer = new CSVFileWriter(ROOT_DIR_EXPEDIA, String.format("%s_%s.csv", destinaion, sort));
+
+//            parser.setDomain(domain);
+//            parser.setSort(sort);
+//            parser.setDestination(destinaion);
+//            parser.setStartDate("2017-11-15");
+//            parser.setEndDate("2017-11-16");
+
+            parser.setWriter(writer);
+
+            String line;
+            StringBuffer sb = new StringBuffer();
+
+            while ((line = reader.readLine()) != null) {
+                sb.append(line);
+            }
+
+            parser.parse(sb.toString());
+
+            reader.close();
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
     }
 
 
@@ -490,8 +526,17 @@ public class MainApp {
 //            scrapExpediaCom(driver);
 //            driver.close();
 
-            parseHotels(BookingHotelParser, ROOT_DIR_BOOKING, com.github.seijuro.site.com.booking.query.Destination.HAWAI, com.github.seijuro.site.com.booking.query.Sort.RECOMMAND);
-//            parseHotels(ExpeidaHotelParser, ROOT_DIR_EXPEDIA, com.github.seijuro.site.com.expedia.query.Destination.BALLY, Sort.RECOMMANED);
+            {
+                com.github.seijuro.search.query.Destination[] destinations = getDestinations_BookingCom();
+                com.github.seijuro.search.query.Sort[] sorts = getSortOrders_BookingCom();
+
+                for (com.github.seijuro.search.query.Sort sort : sorts) {
+                    for (com.github.seijuro.search.query.Destination destination : destinations) {
+                        parseHotels(BookingHotelParser, ROOT_DIR_BOOKING, destination, sort);
+                    }
+                }
+            }
+//            parseHotels(ExpeidaHotelParser, ROOT_DIR_EXPEDIA, com.github.seijuro.site.com.expedia.query.Destination.BALLY, com.github.seijuro.site.com.expedia.query.Sort.RECOMMANED);
         }
         catch (Exception excp) {
             excp.printStackTrace();

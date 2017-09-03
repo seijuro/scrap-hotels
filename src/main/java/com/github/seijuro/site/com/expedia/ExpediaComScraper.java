@@ -86,7 +86,11 @@ public class ExpediaComScraper extends AbstractScraper {
                             lastPageIndex);
 
                     if (Objects.nonNull(htmlWriter)) {
-                        String pageHTML = searchResultElement.getAttribute("outerHTML");
+                        String pageHTML = driver.getPageSource();
+
+                        ExpediaHTMLPageParser parser = new ExpediaHTMLPageParser();
+                        parser.parse(pageHTML);
+
                         htmlWriter.write(searchURL, pageHTML);
                     }
 
