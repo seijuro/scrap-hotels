@@ -2,7 +2,7 @@ package com.github.seijuro.site.com.hotels;
 
 import lombok.Getter;
 
-public enum SortOrder implements com.github.seijuro.search.SortOrder {
+public enum SortOrder implements com.github.seijuro.search.query.Sort {
     BEST_SELLER("BEST_SELLER", "최고인기"),
     STAR_RATING_HIGHEST_FIRST("STAR_RATING_HIGHEST_FIRST", "호텔등급"),
     GUEST_RATING("GUEST_RATING", "고객평점");
@@ -14,6 +14,16 @@ public enum SortOrder implements com.github.seijuro.search.SortOrder {
     private final String text;
     @Getter
     private final String value;
+
+    @Override
+    public String getLabel() {
+        return text;
+    }
+
+    @Override
+    public String getQueryParameter() {
+        return value;
+    }
 
     /**
      * C'tor

@@ -2,11 +2,16 @@ package com.github.seijuro;
 
 import com.github.seijuro.http.rest.IURLEncoder;
 import com.github.seijuro.http.rest.RestfulAPIResponse;
-import com.github.seijuro.search.SortOrder;
+import com.github.seijuro.search.query.Sort;
+import com.github.seijuro.site.com.booking.BookingHTMLPageParser;
+import com.github.seijuro.site.com.expedia.ExpediaComScraper;
+import com.github.seijuro.site.com.expedia.query.Date;
+import com.github.seijuro.site.com.expedia.query.Lodging;
+import com.github.seijuro.site.com.hotels.Destination;
 import com.github.seijuro.site.com.hotels.property.query.QueryProperty;
 import com.github.seijuro.site.com.hotels.result.*;
-import com.github.seijuro.search.Destination;
 import com.github.seijuro.snapshot.*;
+import com.github.seijuro.writer.CSVFileWriter;
 import com.google.gson.Gson;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -21,26 +26,29 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+
+import java.io.*;
 import java.net.URLEncoder;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 
 @Log4j2
 public class MainApp {
     @Getter
     public static final String Domain_HotelsCom = "https://kr.hotels.com";
+    @Getter
     public static final String Domain_BookingCom = "https://www.booking.com";
     @Getter
     public static final String BaseURL_HotelsCom = "https://kr.hotels.com/search/listings.json";
     @Getter
     public static final String BaseURL_BookingCom = "https://www.booking.com/searchresults.ko.html";
 
-    public static SortOrder[] getSortOrders_HotelsCom() {
-        SortOrder[] sortOrders = new SortOrder[] {
+    public static Sort[] getSortOrders_HotelsCom() {
+        Sort[] sortOrders = new Sort[] {
                 com.github.seijuro.site.com.hotels.SortOrder.BEST_SELLER,
                 com.github.seijuro.site.com.hotels.SortOrder.GUEST_RATING,
                 com.github.seijuro.site.com.hotels.SortOrder.STAR_RATING_HIGHEST_FIRST
@@ -49,8 +57,8 @@ public class MainApp {
         return sortOrders;
     }
 
-    public static SortOrder[] getSortOrders_BookingCom() {
-        SortOrder[] sortOrders = new SortOrder[] {
+    public static Sort[] getSortOrders_BookingCom() {
+        Sort[] sortOrders = new Sort[] {
                 com.github.seijuro.site.com.hotels.SortOrder.BEST_SELLER,
                 com.github.seijuro.site.com.hotels.SortOrder.GUEST_RATING,
                 com.github.seijuro.site.com.hotels.SortOrder.STAR_RATING_HIGHEST_FIRST
@@ -75,12 +83,12 @@ public class MainApp {
         return destinations;
     }
 
-    public static String getBeginURL_HotelsCom(Destination dest, SortOrder sortOrder, String checkIn, String checkOut, int rooms, int adult, int children) {
+    public static String getBeginURL_HotelsCom(Destination dest, Sort sortOrder, String checkIn, String checkOut, int rooms, int adult, int children) {
         StringBuffer urlBuilder = new StringBuffer(getBaseURL_HotelsCom());
         urlBuilder.append("?").append(QueryProperty.DestinationId).append("=").append(dest.getId())
                 .append("&").append(QueryProperty.QueryDestination).append("=").append(dest.getQuery())
                 .append("&").append(QueryProperty.ReservedLocation).append("=").append(dest.getLocation())
-                .append("&").append(QueryProperty.SortOrder).append("=").append(sortOrder.getValue())
+                .append("&").append(QueryProperty.SortOrder).append("=").append(sortOrder.getQueryParameter())
                 .append("&").append(QueryProperty.QueryCheckIn).append("=").append(checkIn)
                 .append("&").append(QueryProperty.QueryCheckOut).append("=").append(checkOut)
                 .append("&").append(QueryProperty.QueryRooms).append("=").append(rooms)
@@ -126,7 +134,7 @@ public class MainApp {
             String beginDate = "2017-11-15";
             String endDate = "2017-11-16";
             Destination[] destinations = getDestinations_HotelsCom();
-            SortOrder[] sortOrders = getSortOrders_HotelsCom();
+            Sort[] sortOrders = getSortOrders_HotelsCom();
 
             MySQLConnectionString connectionString = getMySQLConnectionString();
 
@@ -139,7 +147,7 @@ public class MainApp {
 
 
             for (Destination destination : destinations) {
-                for (SortOrder sortOrder : sortOrders) {
+                for (Sort sortOrder : sortOrders) {
                     int rank = 1;
                     int pageNo = 1;
                     int totalCount = 0;
@@ -151,7 +159,7 @@ public class MainApp {
                     builder.setRevision(revision);
                     builder.setUrl(getBaseURL_HotelsCom());
                     builder.setParam1(destination.getText());
-                    builder.setParam2(sortOrder.getText());
+                    builder.setParam2(sortOrder.getQueryParameter());
                     builder.setParam3(beginDate);
                     builder.setParam4(endDate);
                     builder.setParam5(serializedQueryRoom(1, 2, 0));
@@ -160,7 +168,7 @@ public class MainApp {
                     SnapshotResult result = snapshotReader.read(request);
 
                     if (result instanceof SnapshotResult) {
-                        log.debug("skip (reason : already visit, idx : {}) -> revision : {}, url : {}, dest : {}, sort : {}, page : {}", result.getIdx(), revision, getBaseURL_HotelsCom(), destination.getText(), sortOrder.getText(), pageNo);
+                        log.debug("skip (reason : already visit, idx : {}) -> revision : {}, url : {}, dest : {}, sort : {}, page : {}", result.getIdx(), revision, getBaseURL_HotelsCom(), destination.getText(), sortOrder.getQueryParameter(), pageNo);
 
                         return;
                     }
@@ -183,7 +191,7 @@ public class MainApp {
 
                     //  Log
                     log.debug("result # : {}", results.length);
-                    hotelsWriter.write(results, getDomain_HotelsCom(), destination.getText(), beginDate, endDate, type, sortOrder.getText(), rank);
+                    hotelsWriter.write(results, getDomain_HotelsCom(), destination.getText(), beginDate, endDate, type, sortOrder.getLabel(), rank);
                     connection.commit();
 
                     rank += Objects.nonNull(results) ? results.length : 0;
@@ -217,7 +225,7 @@ public class MainApp {
                         nextUrl = Objects.nonNull(pagination) ? pagination.getNextPageUrl() : null;
                         results = searchResults.getResults();
 
-                        hotelsWriter.write(results, getDomain_HotelsCom(), destination.getText(), beginDate, endDate, type, sortOrder.getText(), rank);
+                        hotelsWriter.write(results, getDomain_HotelsCom(), destination.getText(), beginDate, endDate, type, sortOrder.getQueryParameter(), rank);
 
                         rank += Objects.nonNull(results) ? results.length : 0;
                         totalCount += Objects.nonNull(results) ? results.length : 0;
@@ -234,7 +242,7 @@ public class MainApp {
                         writerRequestBuilder.setRevision(revision);
                         writerRequestBuilder.setUrl(getBaseURL_HotelsCom());
                         writerRequestBuilder.setParam1(destination.getText());
-                        writerRequestBuilder.setParam2(sortOrder.getText());
+                        writerRequestBuilder.setParam2(sortOrder.getQueryParameter());
                         writerRequestBuilder.setParam3(beginDate);
                         writerRequestBuilder.setParam4(endDate);
                         writerRequestBuilder.setParam5(serializedQueryRoom(1, 2, 0));
@@ -259,7 +267,7 @@ public class MainApp {
     }
 
     public static String getBookingSeoulURL(int rows, int offset) {
-        StringBuffer urlBuilder = new StringBuffer("https://www.booking.com/searchresults.ko.html?aid=304142&label=gen173nr-1DCAEoggJCAlhYSDNiBW5vcmVmaH2IAQGYARe4AQfIAQzYAQPoAQGSAgF5qAID&sid=7be03716f83bc273a5ae464108ee9221&checkin_month=11&checkin_monthday=15&checkin_year=2017&checkout_month=11&checkout_monthday=16&checkout_year=2017&class_interval=1&dest_id=-716583&dest_type=city&group_adults=2&group_children=0&label_click=undef&lsf=ht_id%7C204%7C434&nflt=ht_id%3D204%3B&no_rooms=1&raw_dest_type=city&room1=A%2CA&sb_price_type=total&src=index&ss=%EC%84%9C%EC%9A%B8&ssb=empty&ssne=%EC%84%9C%EC%9A%B8&ssne_untouched=%EC%84%9C%EC%9A%B8&unchecked_filter=hoteltype");
+        StringBuffer urlBuilder = new StringBuffer("https://www.booking.com/searchresults.ko.html?aid=304142&label=gen173nr-1DCAEoggJCAlhYSDNiBW5vcmVmaH2IAQGYARe4AQfIAQzYAQPoAQGSAgF5qAID&sid=7be03716f83bc273a5ae464108ee9221&checkin_month=11&checkin_monthday=15&checkin_year=2017&checkout_month=11&checkout_monthday=16&checkout_year=2017&class_interval=1&dest_id=-716583&dest_type=city&group_adults=2&group_children=0&label_click=undef&lsf=ht_id%7C204%7C434&nflt=ht_id%3D204%3B&no_rooms=1&raw_dest_type=city&room1=A%2CA&sb_price_type=total&src=index&ss=%EC%84%9C%EC%9A%B8&ssb=empty&ssne=%EC%84%9C%EC%9A%B8&ssne_untouched=%EC%84%9C%EC%9A%B8&unchecked_filter=hoteltype&rows=15");
 
         if (rows > 0) {
             urlBuilder.append("&rows=").append(rows);
@@ -275,17 +283,19 @@ public class MainApp {
     public static void scrapBookingCom() {
         try {
             Destination[] destinations = getDestinations_HotelsCom();
-            SortOrder[] sortOrders = getSortOrders_HotelsCom();
+            Sort[] sortOrders = getSortOrders_HotelsCom();
 
-            int rows = 50;
+            int rows = 15;
             int offset = 0;
             String requestURL = getBookingSeoulURL(rows, offset);
 
-            System.setProperty("webdriver.chrome.driver", "/Users/myungjoonlee/Desktop/chromedriver");
+            System.setProperty("webdriver.chrome.driver", "/Users/sogiro/IdeaProjects/chromedriver");
             WebDriver driver = new ChromeDriver();
             driver.get(requestURL);
 
             Thread.sleep(10L * DateUtils.MILLIS_PER_SECOND);
+
+            System.out.println("========== PAGE SOURCE ==========\n" + driver.getPageSource());
 
             WebElement element = driver.findElement(By.id("hotellist_inner"));
             String pageHTML = element.getAttribute("outerHTML");
@@ -310,6 +320,7 @@ public class MainApp {
                 String hotelClass = currentElement.attr("data-class");
                 String hotelScore = currentElement.attr("data-score");
                 Elements infoElements = currentElement.select("i.preferred-program-icon.bicon-thumb-up");
+
                 boolean thumbUp = infoElements.size() > 0 ? true : false;
 
                 if (elementRibbon.size() > 0) {
@@ -343,9 +354,150 @@ public class MainApp {
         }
     }
 
+    public static void scrapExpediaCom(WebDriver driver) {
+        try {
+            DefaultHTMLFileWriter writer = new DefaultHTMLFileWriter("/Users/sogiro/Developer/Expedia.com");
+
+            List<com.github.seijuro.site.com.expedia.query.Destination> destinations = Arrays.asList(
+                    com.github.seijuro.site.com.expedia.query.Destination.SEOUL,
+                    com.github.seijuro.site.com.expedia.query.Destination.JEJU,
+                    com.github.seijuro.site.com.expedia.query.Destination.BALLY,
+                    com.github.seijuro.site.com.expedia.query.Destination.HAWAI);
+            List<Sort> sorts = Arrays.asList(
+                    com.github.seijuro.site.com.expedia.query.Sort.RECOMMANED,
+                    com.github.seijuro.site.com.expedia.query.Sort.STAR_RATING,
+                    com.github.seijuro.site.com.expedia.query.Sort.GUEST_RATING
+            );
+            List<com.github.seijuro.site.com.expedia.query.Lodging> lodgings = Arrays.asList(
+                    Lodging.HOTEL,
+                    Lodging.HOTEL_RESORT
+            );
+
+            ExpediaComScraper scraper = new ExpediaComScraper(driver);
+            scraper.setAdults(2);
+            scraper.setDestinations(destinations);
+            scraper.setSorts(sorts);
+            scraper.setStartDate(new Date(2017, 11,15));
+            scraper.setEndDate(new Date(2017, 11,16));
+            scraper.setLodgings(lodgings);
+            scraper.setHtmlWriter(writer);
+
+            scraper.scrap();
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+    }
+
+    static final String ROOT_DIR_BOOKING = "/Users/sogiro/Developer/Booking.com";
+    static final String ROOT_DIR_EXPEDIA = "/Users/sogiro/Developer/Expedia.com";
+
+    public static interface HotelParser {
+        public abstract void parse(String filepath);
+    }
+
+    public static final HotelParser BookingHotelParser = (filepath -> {parseBookingHTMLPage(filepath);});
+    public static final HotelParser ExpeidaHotelParser = (filepath -> {parseExpediaHTMLPage(filepath);});
+
+    public static void parseHotels(HotelParser parser, String rootDir, com.github.seijuro.search.query.Destination destination, com.github.seijuro.search.query.Sort sort) {
+        try {
+            StringBuffer pathBuilder = new StringBuffer(rootDir);
+            pathBuilder.append(File.separator).append(sort.getLabel())
+                    .append(File.separator).append(destination.getLabel());
+
+            File dirpath = new File(pathBuilder.toString());
+            assert dirpath.isDirectory();
+
+            parseHotels(parser, dirpath.listFiles());
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+    }
+
+    public static void parseHotels(HotelParser parser, File... files) {
+        for (File file : files) {
+            if (file.isDirectory()) {
+                parseHotels(parser, file.listFiles());
+            }
+            else {
+                //  Log
+                log.debug("filename : {}", file.getName());
+
+                parser.parse(file.getAbsolutePath());
+            }
+        }
+    }
+
+    public static void parseBookingHTMLPage(String filepath) {
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(filepath));
+            BookingHTMLPageParser parser = new BookingHTMLPageParser();
+            CSVFileWriter writer = new CSVFileWriter(ROOT_DIR_BOOKING, "hotels.csv");
+
+            String[] tokens = filepath.split(File.separator);
+            String destinaion = tokens[tokens.length - 2];
+            String sort = tokens[tokens.length - 3];
+            String domain = tokens[tokens.length - 4];
+
+            parser.setDomain(domain);
+            parser.setSort(sort);
+            parser.setDestination(destinaion);
+            parser.setStartDate("2017-11-15");
+            parser.setEndDate("2017-11-16");
+
+            parser.setWriter(writer);
+
+            String line;
+            StringBuffer sb = new StringBuffer();
+
+            while ((line = reader.readLine()) != null) {
+                sb.append(line);
+            }
+
+            parser.parse(sb.toString());
+
+            reader.close();
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+    }
+
+    public static void parseExpediaHTMLPage(String filepath) {
+
+    }
+
+
 
     public static void main(String[] args) {
+        System.setProperty("webdriver.chrome.driver", "/Users/sogiro/IdeaProjects/chromedriver");
+
 //        scrapHotelsCom();
-        scrapBookingCom();
+//        scrapBookingCom();
+//
+        try {
+//            WebDriver driver = new ChromeDriver();
+//            driver.get(BookingComScraper.getBaseURL());
+//
+//            Thread.sleep(5 * DateUtils.MILLIS_PER_SECOND);
+//
+//            BookingComScraper scraper = new BookingComScraper(driver, new HTMLFileWriter("/Users/sogiro/Developer/Booking.com/Score"));
+//            scraper.setSleepMillis(10L * DateUtils.MILLIS_PER_SECOND);
+//            scraper.setSortOrder(BookingComScraper.SortOrder.SCORE);
+//            scraper.scrapUntilLast();
+//
+//            scrapExpediaCom(driver);
+//            driver.close();
+
+            parseHotels(BookingHotelParser, ROOT_DIR_BOOKING, com.github.seijuro.site.com.booking.query.Destination.HAWAI, com.github.seijuro.site.com.booking.query.Sort.RECOMMAND);
+//            parseHotels(ExpeidaHotelParser, ROOT_DIR_EXPEDIA, com.github.seijuro.site.com.expedia.query.Destination.BALLY, Sort.RECOMMANED);
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+
+
+
     }
 }
