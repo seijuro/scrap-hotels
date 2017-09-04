@@ -6,7 +6,7 @@ import lombok.Getter;
 import java.io.IOException;
 import java.sql.Connection;
 
-public abstract class AbstractDBWritter<T extends Result> implements RecordWriter<T> {
+public abstract class AbstractDBWritter<T> implements RecordWriter<T> {
     @Getter
     private final static int DefaultCommitBlockSize = 500;
 

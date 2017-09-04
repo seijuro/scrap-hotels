@@ -3,8 +3,12 @@ package com.github.seijuro;
 import com.github.seijuro.http.rest.IURLEncoder;
 import com.github.seijuro.http.rest.RestfulAPIResponse;
 import com.github.seijuro.search.query.Sort;
+import com.github.seijuro.site.com.agoda.AgodaScraper;
+import com.github.seijuro.site.com.agoda.query.CheckIn;
+import com.github.seijuro.site.com.agoda.query.CheckOut;
 import com.github.seijuro.site.com.booking.BookingHTMLPageParser;
-import com.github.seijuro.site.com.expedia.ExpediaComScraper;
+import com.github.seijuro.site.com.booking.data.BookingHotel;
+import com.github.seijuro.site.com.expedia.ExpediaScraper;
 import com.github.seijuro.site.com.expedia.ExpediaHTMLPageParser;
 import com.github.seijuro.site.com.expedia.query.Date;
 import com.github.seijuro.site.com.expedia.query.Lodging;
@@ -13,7 +17,6 @@ import com.github.seijuro.site.com.hotels.property.query.QueryProperty;
 import com.github.seijuro.site.com.hotels.result.*;
 import com.github.seijuro.snapshot.*;
 import com.github.seijuro.writer.CSVFileWriter;
-import com.github.seijuro.writer.TSVFileWriter;
 import com.google.gson.Gson;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -33,10 +36,7 @@ import java.io.*;
 import java.net.URLEncoder;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 @Log4j2
 public class MainApp {
@@ -361,7 +361,7 @@ public class MainApp {
 
     public static void scrapExpediaCom(WebDriver driver) {
         try {
-            DefaultHTMLFileWriter writer = new DefaultHTMLFileWriter("/Users/sogiro/Developer/Expedia.com");
+            DefaultHTMLFileWriter writer = new DefaultHTMLFileWriter("/Users/myungjoonlee/Developer/Expedia.com");
 
             List<com.github.seijuro.site.com.expedia.query.Destination> destinations = Arrays.asList(
                     com.github.seijuro.site.com.expedia.query.Destination.SEOUL,
@@ -371,14 +371,15 @@ public class MainApp {
             List<Sort> sorts = Arrays.asList(
                     com.github.seijuro.site.com.expedia.query.Sort.RECOMMANED,
                     com.github.seijuro.site.com.expedia.query.Sort.STAR_RATING,
-                    com.github.seijuro.site.com.expedia.query.Sort.GUEST_RATING
+                    com.github.seijuro.site.com.expedia.query.Sort.GUEST_RATING,
+                    com.github.seijuro.site.com.expedia.query.Sort.BEST_DEALS
             );
             List<com.github.seijuro.site.com.expedia.query.Lodging> lodgings = Arrays.asList(
                     Lodging.HOTEL,
                     Lodging.HOTEL_RESORT
             );
 
-            ExpediaComScraper scraper = new ExpediaComScraper(driver);
+            ExpediaScraper scraper = new ExpediaScraper(driver);
             scraper.setAdults(2);
             scraper.setDestinations(destinations);
             scraper.setSorts(sorts);
@@ -394,8 +395,32 @@ public class MainApp {
         }
     }
 
-    static final String ROOT_DIR_BOOKING = "/Users/sogiro/Developer/Booking.com";
-    static final String ROOT_DIR_EXPEDIA = "/Users/sogiro/Developer/Expedia.com";
+    public static void scrapAgodaCom(WebDriver driver) {
+        try {
+            DefaultHTMLFileWriter writer = new DefaultHTMLFileWriter("/Users/myungjoonlee/Developer/Agoda.com");
+
+            List<com.github.seijuro.search.query.Destination> destinations = Arrays.asList(com.github.seijuro.site.com.agoda.query.Destination.values());
+            List<com.github.seijuro.search.query.Sort> sorts = Arrays.asList(com.github.seijuro.site.com.agoda.query.Sort.values());
+            List<com.github.seijuro.search.query.Lodging> lodgings = Arrays.asList(com.github.seijuro.site.com.agoda.query.Lodging.values());
+
+            AgodaScraper scraper = new AgodaScraper(driver);
+            scraper.setAdults(2);
+            scraper.setDestinations(destinations);
+            scraper.setSorts(sorts);
+            scraper.setStartDate(new CheckIn(2017, 11,15));
+            scraper.setEndDate(new CheckOut(2017, 11,16));
+            scraper.setLodgings(lodgings);
+            scraper.setHtmlWriter(writer);
+
+            scraper.scrap();
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+    }
+
+    static final String ROOT_DIR_BOOKING = "/Users/myungjoonlee/Developer/Booking.com";
+    static final String ROOT_DIR_EXPEDIA = "/Users/myungjoonlee/Developer/Expedia.com";
 
     public static interface HotelParser {
         public abstract void parse(String filepath);
@@ -434,6 +459,8 @@ public class MainApp {
         }
     }
 
+    public static Map<String, Integer> rank = new HashMap<>();
+
     public static void parseBookingHTMLPage(String filepath) {
         try {
             String[] tokens = filepath.split(File.separator);
@@ -443,15 +470,12 @@ public class MainApp {
 
             BufferedReader reader = new BufferedReader(new FileReader(filepath));
             BookingHTMLPageParser parser = new BookingHTMLPageParser();
-            TSVFileWriter writer = new TSVFileWriter(ROOT_DIR_BOOKING, String.format("%s_%s.tsv", destinaion, sort));
 
             parser.setDomain(domain);
             parser.setSort(sort);
             parser.setDestination(destinaion);
             parser.setStartDate("2017-11-15");
             parser.setEndDate("2017-11-16");
-
-            parser.setWriter(writer);
 
             String line;
             StringBuffer sb = new StringBuffer();
@@ -460,9 +484,23 @@ public class MainApp {
                 sb.append(line);
             }
 
-            parser.parse(sb.toString());
-
             reader.close();
+
+            String rankKey = String.format("%s%s%s", domain, sort, destinaion);
+            Integer latestRank = rank.getOrDefault(rankKey, 0);
+            List<BookingHotel> results = parser.parse(sb.toString());
+
+            MySQLConnectionString connectionString = getMySQLConnectionString();
+
+            Class.forName("com.mysql.jdbc.Driver");
+            Connection connection = DriverManager.getConnection(connectionString.toConnectionString(), connectionString.getUser(), connectionString.getPassword());
+            connection.setAutoCommit(false);
+            BookingWriter writer = new BookingWriter(connection);
+            writer.write(results.toArray(new BookingHotel[results.size()]), domain, destinaion, "2017-11-15", "2017-11-16", "호텔, 리조트", sort, latestRank + 1);
+            rank.put(rankKey, latestRank + results.size());
+
+            connection.commit();
+            connection.close();;
         }
         catch (Exception excp) {
             excp.printStackTrace();
@@ -486,7 +524,7 @@ public class MainApp {
 //            parser.setStartDate("2017-11-15");
 //            parser.setEndDate("2017-11-16");
 
-            parser.setWriter(writer);
+//            parser.setWriter(writer);
 
             String line;
             StringBuffer sb = new StringBuffer();
@@ -507,7 +545,7 @@ public class MainApp {
 
 
     public static void main(String[] args) {
-        System.setProperty("webdriver.chrome.driver", "/Users/sogiro/IdeaProjects/chromedriver");
+        System.setProperty("webdriver.chrome.driver", "/Users/myungjoonlee/Desktop/chromedriver");
 
 //        scrapHotelsCom();
 //        scrapBookingCom();
@@ -523,9 +561,41 @@ public class MainApp {
 //            scraper.setSortOrder(BookingComScraper.SortOrder.SCORE);
 //            scraper.scrapUntilLast();
 //
-//            scrapExpediaCom(driver);
 //            driver.close();
 
+            /**
+             * site : Expedia.com
+             * source : site
+             * [target]
+             * server : chaos
+             * database : KDI
+             */
+//            {
+//                WebDriver driver = new ChromeDriver();
+//                scrapExpediaCom(driver);
+//                driver.close();
+//            }
+
+            /**
+             * site : Agoda.com
+             * source : site
+             * [target]
+             * server : chaos
+             * database : KDI
+             */
+            {
+                WebDriver driver = new ChromeDriver();
+                scrapAgodaCom(driver);
+                driver.close();
+            }
+
+            /**
+             * site : Booking.com
+             * source : html files
+             * [target]
+             * server : chaos
+             * database : KDI
+             */
             {
                 com.github.seijuro.search.query.Destination[] destinations = getDestinations_BookingCom();
                 com.github.seijuro.search.query.Sort[] sorts = getSortOrders_BookingCom();
@@ -536,6 +606,7 @@ public class MainApp {
                     }
                 }
             }
+
 //            parseHotels(ExpeidaHotelParser, ROOT_DIR_EXPEDIA, com.github.seijuro.site.com.expedia.query.Destination.BALLY, com.github.seijuro.site.com.expedia.query.Sort.RECOMMANED);
         }
         catch (Exception excp) {

@@ -1,5 +1,9 @@
 package com.github.seijuro.parser;
 
-public interface HTMLPageParser {
-    public abstract void parse(String html);
+import com.github.seijuro.site.HotelBase;
+
+import java.util.List;
+
+public interface HTMLPageParser<T extends HotelBase> {
+    public abstract List<T> parse(String html);
 }

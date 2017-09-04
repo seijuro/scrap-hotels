@@ -5,7 +5,8 @@ import lombok.Getter;
 public enum Sort implements com.github.seijuro.search.query.Sort {
     RECOMMANED("추천", "recommended"),
     GUEST_RATING("고객 평점", "guestRating"),
-    STAR_RATING("숙박 시설 등급", "starRating");
+    STAR_RATING("숙박 시설 등급", "starRating"),
+    BEST_DEALS("베스트 특가 상품", "deals");
 
     @Getter
     private final String label;

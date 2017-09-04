@@ -2,39 +2,21 @@ package com.github.seijuro.site.com.booking.data;
 
 import com.github.seijuro.CSVConvertable;
 import com.github.seijuro.TSVConvertable;
+import com.github.seijuro.site.HotelBase;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 @ToString
-public class HotelData implements CSVConvertable, TSVConvertable {
-    @Getter
-    private final String domain;
-    @Getter
-    private final String destination;
-    @Getter
-    private final String sort;
-    @Getter
-    private final String startDate;
-    @Getter
-    private final String endDate;
+public class BookingHotel extends HotelBase implements CSVConvertable, TSVConvertable {
     @Getter
     private final boolean thumbUpIcon;
     @Getter
-    private final String id;
-    @Getter
-    private final String name;
-    @Getter
-    private final String price;
-    @Getter
     private final String score;
-    @Getter
-    private final String linkURL;
     @Getter
     private final String clazz;
     @Getter
@@ -44,7 +26,7 @@ public class HotelData implements CSVConvertable, TSVConvertable {
     @Getter
     private final List<String> ribbon;
     @Getter
-    private final List<String> deal;
+    private final List<String> deals;
     @Getter
     private final String banner;
 
@@ -53,43 +35,35 @@ public class HotelData implements CSVConvertable, TSVConvertable {
      *
      * @param builder
      */
-    public HotelData(Builder builder) {
-        domain = builder.domain;
-        destination = builder.destination;
-        sort = builder.sort;
-        startDate = builder.startDate;
-        endDate = builder.endDate;
+    public BookingHotel(Builder builder) {
+        super(builder);
 
         thumbUpIcon = builder.thumbUpIcon;
         conditions = builder.conditions;
-        id = builder.id;
-        name = builder.name;
-        price = builder.price;
         score = builder.score;
-        linkURL = builder.linkURL;
         clazz = builder.clazz;
         tag = builder.tag;
         ribbon = builder.ribbons;
-        deal = builder.deals;
+        deals = builder.deals;
         banner = builder.banner;
     }
 
     protected String format(String columnSeperator, String elementSeperator) {
         StringBuffer sb = new StringBuffer();
 
-        sb.append(domain)
-                .append(columnSeperator).append(destination)
-                .append(columnSeperator).append(sort)
-                .append(columnSeperator).append(startDate)
-                .append(columnSeperator).append(endDate)
-                .append(columnSeperator).append(id)
-                .append(columnSeperator).append(name)
-                .append(columnSeperator).append(price)
+        sb.append(getDomain())
+                .append(columnSeperator).append(getDestination())
+                .append(columnSeperator).append(getSort())
+                .append(columnSeperator).append(getStartDate())
+                .append(columnSeperator).append(getEndDate())
+                .append(columnSeperator).append(getId())
+                .append(columnSeperator).append(getName())
+                .append(columnSeperator).append(getPrice())
                 .append(columnSeperator).append(score)
                 .append(columnSeperator).append(clazz)
                 .append(columnSeperator).append(tag)
                 .append(columnSeperator).append(thumbUpIcon)
-                .append(columnSeperator).append(linkURL);
+                .append(columnSeperator).append(getLinkURL());
 
         //  conditions
         sb.append(columnSeperator);
@@ -101,8 +75,8 @@ public class HotelData implements CSVConvertable, TSVConvertable {
         for (int index = 1; index < ribbon.size(); ++index) { sb.append(elementSeperator).append(ribbon.get(index)); }
         //  deals
         sb.append(columnSeperator);
-        if (deal.size() > 0) { sb.append(deal.get(0)); }
-        for (int index = 1; index < deal.size(); ++index) { sb.append(elementSeperator).append(deal.get(index)); }
+        if (deals.size() > 0) { sb.append(deals.get(0)); }
+        for (int index = 1; index < deals.size(); ++index) { sb.append(elementSeperator).append(deals.get(index)); }
 
         return sb.toString();
     }
@@ -116,30 +90,11 @@ public class HotelData implements CSVConvertable, TSVConvertable {
         return format(",", "\t");
     }
 
-    public static class Builder {
-        @Setter
-        private String domain = StringUtils.EMPTY;
-        @Setter
-        private String destination = StringUtils.EMPTY;
-        @Setter
-        private String sort = StringUtils.EMPTY;
-        @Setter
-        private String startDate = StringUtils.EMPTY;
-        @Setter
-        private String endDate = StringUtils.EMPTY;
-
+    public static class Builder extends HotelBase.Builder {
         @Setter
         private boolean thumbUpIcon = false;
         @Setter
-        private String id = StringUtils.EMPTY;
-        @Setter
-        private String name = StringUtils.EMPTY;
-        @Setter
-        private String price = StringUtils.EMPTY;
-        @Setter
         private String score = StringUtils.EMPTY;
-        @Setter
-        private String linkURL = StringUtils.EMPTY;
         @Setter
         private String clazz = StringUtils.EMPTY;
         @Setter
@@ -168,8 +123,8 @@ public class HotelData implements CSVConvertable, TSVConvertable {
             }
         }
 
-        public HotelData build() {
-            return new HotelData(this);
+        public BookingHotel build() {
+            return new BookingHotel(this);
         }
     }
 }

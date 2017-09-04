@@ -18,7 +18,7 @@ import org.openqa.selenium.WebElement;
 import java.util.Objects;
 
 @Log4j2
-public class BookingComScraper extends AbstractScraper {
+public class BookingScraper extends AbstractScraper {
     @Getter
     public static final String BaseURL = "https://www.booking.com";
     public static final String SearchResultsURL_KR = "https://www.booking.com/searchresults.ko.html";
@@ -84,7 +84,7 @@ public class BookingComScraper extends AbstractScraper {
     protected long sleepMillis = getDefaultSleepMillis();
     private boolean isFirst;
 
-    public BookingComScraper(WebDriver driver, HTMLWriter writer) {
+    public BookingScraper(WebDriver driver, HTMLWriter writer) {
         super(driver);
 
         this.writer = writer;
