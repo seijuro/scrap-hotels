@@ -3,6 +3,7 @@ package com.github.seijuro;
 import com.github.seijuro.http.rest.IURLEncoder;
 import com.github.seijuro.http.rest.RestfulAPIResponse;
 import com.github.seijuro.search.query.Sort;
+import com.github.seijuro.site.com.agoda.AgodaHotelReviewHTMLWriter;
 import com.github.seijuro.site.com.agoda.AgodaScraper;
 import com.github.seijuro.site.com.agoda.query.CheckIn;
 import com.github.seijuro.site.com.agoda.query.CheckOut;
@@ -28,15 +29,18 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.openqa.selenium.By;
+import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 
+import javax.xml.parsers.DocumentBuilder;
 import java.io.*;
 import java.net.URLEncoder;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @Log4j2
 public class MainApp {
@@ -397,7 +401,7 @@ public class MainApp {
 
     public static void scrapAgodaCom(WebDriver driver) {
         try {
-            DefaultHTMLFileWriter writer = new DefaultHTMLFileWriter("/Users/myungjoonlee/Developer/Agoda.com");
+            DefaultHTMLFileWriter writer = new DefaultHTMLFileWriter("/Users/sogiro/Developer/Agoda.com");
 
             List<com.github.seijuro.search.query.Destination> destinations = Arrays.asList(com.github.seijuro.site.com.agoda.query.Destination.values());
             List<com.github.seijuro.search.query.Sort> sorts = Arrays.asList(com.github.seijuro.site.com.agoda.query.Sort.values());
@@ -413,6 +417,93 @@ public class MainApp {
             scraper.setHtmlWriter(writer);
 
             scraper.scrap();
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+    }
+
+
+    public static void scrapAgodaDescAndReview(AgodaHotelReviewHTMLWriter writer, BufferedReader reader, WebDriver driver) {
+        String line;
+
+        try {
+            while ((line = reader.readLine()) != null) {
+                String[] tokens = line.split(":", 2);
+
+                if (tokens.length != 2) {
+                    //  Log
+                    log.warn("tokens.lenth(required : 2) : {}, data : {}", tokens.length, line);
+
+                    continue;
+                }
+
+                String hotelId = tokens[0];
+                String linkURL = tokens[1];
+
+                if (writer.alreadyVisited(hotelId)) {
+                    //  Log
+                    log.debug("already exists ... hotelId : {}", hotelId);
+
+                    continue;
+                }
+
+                //  Log
+                log.debug("hotelId : {}, linkURL : {}", hotelId, linkURL);
+
+                List<com.github.seijuro.search.query.Destination> destinations = Arrays.asList(com.github.seijuro.site.com.agoda.query.Destination.values());
+                List<com.github.seijuro.search.query.Sort> sorts = Arrays.asList(com.github.seijuro.site.com.agoda.query.Sort.values());
+                List<com.github.seijuro.search.query.Lodging> lodgings = Arrays.asList(com.github.seijuro.site.com.agoda.query.Lodging.values());
+
+                AgodaScraper scraper = new AgodaScraper(driver);
+                scraper.setAdults(2);
+                scraper.setDestinations(destinations);
+                scraper.setSorts(sorts);
+                scraper.setStartDate(new CheckIn(2017, 11,15));
+                scraper.setEndDate(new CheckOut(2017, 11,16));
+                scraper.setLodgings(lodgings);
+
+                scraper.scrapDetailsNReviews(writer, hotelId, linkURL);
+            }
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+
+    }
+
+
+    public static void extractHotelIdAndLinkURL(FileWriter fwriter, File ... files) {
+        try {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    extractHotelIdAndLinkURL(fwriter, file.listFiles());
+                }
+                else {
+                    //  Log
+                    log.debug("filename : {}", file.getName());
+
+                    String line;
+                    StringBuffer contentBuilder = new StringBuffer();
+                    BufferedReader freader = new BufferedReader(new FileReader(file));
+
+                    while ((line = freader.readLine()) != null) {
+                        contentBuilder.append(line);
+                    }
+
+                    freader.close();
+
+                    Document pageDocument = Jsoup.parse(contentBuilder.toString());
+                    Elements hotelItems = pageDocument.select("li[data-hotelid]");
+
+                    for (Element hotelItem : hotelItems) {
+                        String hotelId = hotelItem.attr("data-hotelid");
+                        String linkURL = String.format("%s%s", "https://www.agoda.com", hotelItem.select("a[href]").first().attr("href"));
+
+                        fwriter.write(String.format("%s:%s\n", hotelId, linkURL));
+                    }
+                }
+            }
         }
         catch (Exception excp) {
             excp.printStackTrace();
@@ -542,10 +633,8 @@ public class MainApp {
         }
     }
 
-
-
     public static void main(String[] args) {
-        System.setProperty("webdriver.chrome.driver", "/Users/myungjoonlee/Desktop/chromedriver");
+        System.setProperty("webdriver.chrome.driver", "/Users/sogiro/Desktop/chromedriver");
 
 //        scrapHotelsCom();
 //        scrapBookingCom();
@@ -585,7 +674,26 @@ public class MainApp {
              */
             {
                 WebDriver driver = new ChromeDriver();
-                scrapAgodaCom(driver);
+
+//                scrapAgodaCom(driver);
+                try {
+                    String outFilepath = "/Users/sogiro/Developer/agoda-hotels.txt";
+//                    FileWriter fwriter = new FileWriter(outFilepath);
+//
+//                    extractHotelIdAndLinkURL(, new File("/Users/sogiro/Developer/Agoda.com").listFiles());
+//                    fwriter.close();
+
+                    BufferedReader reader = new BufferedReader(new FileReader(outFilepath));
+                    AgodaHotelReviewHTMLWriter writer = new AgodaHotelReviewHTMLWriter("/Users/sogiro/Developer/Agoda-reviews");
+                    scrapAgodaDescAndReview(writer, reader, driver);
+
+                    reader.close();
+
+                }
+                catch (Exception excp) {
+                    excp.printStackTrace();
+                }
+
                 driver.close();
             }
 
@@ -596,16 +704,16 @@ public class MainApp {
              * server : chaos
              * database : KDI
              */
-            {
-                com.github.seijuro.search.query.Destination[] destinations = getDestinations_BookingCom();
-                com.github.seijuro.search.query.Sort[] sorts = getSortOrders_BookingCom();
-
-                for (com.github.seijuro.search.query.Sort sort : sorts) {
-                    for (com.github.seijuro.search.query.Destination destination : destinations) {
-                        parseHotels(BookingHotelParser, ROOT_DIR_BOOKING, destination, sort);
-                    }
-                }
-            }
+//            {
+//                com.github.seijuro.search.query.Destination[] destinations = getDestinations_BookingCom();
+//                com.github.seijuro.search.query.Sort[] sorts = getSortOrders_BookingCom();
+//
+//                for (com.github.seijuro.search.query.Sort sort : sorts) {
+//                    for (com.github.seijuro.search.query.Destination destination : destinations) {
+//                        parseHotels(BookingHotelParser, ROOT_DIR_BOOKING, destination, sort);
+//                    }
+//                }
+//            }
 
 //            parseHotels(ExpeidaHotelParser, ROOT_DIR_EXPEDIA, com.github.seijuro.site.com.expedia.query.Destination.BALLY, com.github.seijuro.site.com.expedia.query.Sort.RECOMMANED);
         }

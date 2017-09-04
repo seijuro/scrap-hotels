@@ -27,7 +27,7 @@ public class SearchURL implements com.github.seijuro.search.SearchURL {
     private final Destination destination;
     @Getter
     private final Sort sort;
-    @Getter
+    @Getter @Setter
     private int page;
     private final CheckIn checkIn;
     private final CheckOut checkOut;

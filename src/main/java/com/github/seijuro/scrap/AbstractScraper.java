@@ -10,6 +10,8 @@ import java.util.Objects;
 
 @Log4j2
 public abstract class AbstractScraper implements Scraper {
+    public void createNewTab() {
+    }
     /**
      * Instance Properties
      */
@@ -45,7 +47,7 @@ public abstract class AbstractScraper implements Scraper {
             //  Log
             log.debug("requestURL : {}", requestURL);
 
-            driver.get(requestURL);
+            driver.navigate().to(requestURL);
         }
 
         Thread.sleep(sleepMillis);
