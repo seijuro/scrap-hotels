@@ -28,18 +28,22 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.openqa.selenium.By;
-import org.openqa.selenium.Keys;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
+import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.remote.DesiredCapabilities;
+import org.openqa.selenium.remote.RemoteWebDriver;
 
 import javax.xml.parsers.DocumentBuilder;
 import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.net.URLEncoder;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 @Log4j2
@@ -634,7 +638,7 @@ public class MainApp {
     }
 
     public static void main(String[] args) {
-        System.setProperty("webdriver.chrome.driver", "/Users/sogiro/Desktop/chromedriver");
+        System.setProperty("webdriver.chrome.driver", "/Users/myungjoonlee/Desktop/chromedriver");
 
 //        scrapHotelsCom();
 //        scrapBookingCom();
@@ -676,19 +680,61 @@ public class MainApp {
                 WebDriver driver = new ChromeDriver();
 
 //                scrapAgodaCom(driver);
+
                 try {
-                    String outFilepath = "/Users/sogiro/Developer/agoda-hotels.txt";
-//                    FileWriter fwriter = new FileWriter(outFilepath);
+//                    String outFilepath = "/Users/myungjoonlee/Developer/agoda-hotels.txt";
 //
-//                    extractHotelIdAndLinkURL(, new File("/Users/sogiro/Developer/Agoda.com").listFiles());
-//                    fwriter.close();
+//                    //  extract 'hotelId(s) and linkURL(s) ...
+//                    {
+//                        FileWriter fwriter = new FileWriter(outFilepath);
+//                        extractHotelIdAndLinkURL(fwriter, new File("/Users/myungjoonlee/Desktop/Agoda.com").listFiles());
+//                        fwriter.close();
+//                    }
 
-                    BufferedReader reader = new BufferedReader(new FileReader(outFilepath));
-                    AgodaHotelReviewHTMLWriter writer = new AgodaHotelReviewHTMLWriter("/Users/sogiro/Developer/Agoda-reviews");
-                    scrapAgodaDescAndReview(writer, reader, driver);
+                    final String[] arrInputFilepath = {
+                            "/Users/myungjoonlee/Desktop/Agoda/agoda_hotels_1",
+                            "/Users/myungjoonlee/Desktop/Agoda/agoda_hotels_2",
+                            "/Users/myungjoonlee/Desktop/Agoda/agoda_hotels_3",
+                            "/Users/myungjoonlee/Desktop/Agoda/agoda_hotels_4",
+                            "/Users/myungjoonlee/Desktop/Agoda/agoda_hotels_5",
+                            "/Users/myungjoonlee/Desktop/Agoda/agoda_hotels_6"
+                    };
 
-                    reader.close();
+                    for (final String inputFilepath : arrInputFilepath) {
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                Capabilities capabilities = DesiredCapabilities.chrome();
 
+                                try {
+                                    WebDriver driver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
+
+                                    BufferedReader reader = new BufferedReader(new FileReader(inputFilepath));
+                                    AgodaHotelReviewHTMLWriter writer = new AgodaHotelReviewHTMLWriter("/Users/myungjoonlee/Desktop/Agoda-reviews");
+                                    scrapAgodaDescAndReview(writer, reader, driver);
+
+                                    reader.close();
+
+                                    driver.quit();
+                                }
+                                catch (MalformedURLException excp) {
+                                    excp.printStackTrace();
+                                }
+                                catch (FileNotFoundException excp) {
+                                    excp.printStackTrace();
+                                }
+                                catch (IOException excp) {
+                                    excp.printStackTrace();
+                                }
+                            }
+                        }).start();
+                    }
+
+//                    BufferedReader reader = new BufferedReader(new FileReader(arrInputFilepath[5]));
+//                    AgodaHotelReviewHTMLWriter writer = new AgodaHotelReviewHTMLWriter("/Users/myungjoonlee/Desktop/Agoda-reviews");
+//                    scrapAgodaDescAndReview(writer, reader, driver);
+//
+//                    reader.close();
                 }
                 catch (Exception excp) {
                     excp.printStackTrace();

@@ -9,6 +9,7 @@ import com.github.seijuro.writer.HTMLWriter;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.DateUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -70,6 +71,7 @@ public class AgodaScraper extends AbstractScraper {
             WebDriver driver = getDriver();
             JavascriptExecutor js = (JavascriptExecutor)driver;
             int startPosY = 0;
+            int currentPage = 1;
 
             scrap(requestURL, sleepMillis);
 
@@ -84,43 +86,70 @@ public class AgodaScraper extends AbstractScraper {
             }
 
             do {
-                WebElement reviewFilterElement = driver.findElement(By.xpath("//div[@class='review-filters']"));
-                startPosY = reviewFilterElement.getLocation().getY();
+                if (driver.findElements(By.id("customer-reviews-panel")).size() > 0) {
+                    WebElement reviewPanelElement = driver.findElement(By.xpath("//div[@id='customer-reviews-panel']"));
+                    startPosY = reviewPanelElement.getLocation().getY();
 
-                js.executeScript("arguments[0].scrollIntoView(true);", reviewFilterElement);
-                Thread.sleep(500);
+                    js.executeScript("arguments[0].scrollIntoView(true);", reviewPanelElement);
+                    Thread.sleep(500);
 
-                WebElement nextPageElement = driver.findElement(By.xpath("//a[@id='next-page']"));
-                WebElement currentPageElement = driver.findElement(By.xpath("//a[@class='pagination-number active']"));
-                boolean hasNextPage = nextPageElement.getAttribute("class").contains("disabled") ? false : true;
-                Integer currentPage = Integer.parseInt(currentPageElement.getText());
+                    WebElement nextPageElement = null;
+                    boolean hasNextPage = false;
+                    List<WebElement> paginationElements = driver.findElements(By.className("pagination"));
 
-                //  Log
-                log.debug("current-page : {}, hasNextPage : {}", currentPage, hasNextPage);
+                    if (paginationElements.size() > 0) {
+                        List<WebElement> nextPageElements = driver.findElements(By.id("next-page"));
+                        List<WebElement> pageNumberElements = driver.findElements(By.className("pagination-number"));
 
-                //  Save html to file.
-                if (Objects.nonNull(writer)) {
-                    String pageHTML = driver.getPageSource();
-
-                    writer.write(hotelId, currentPage, pageHTML);
-                }
-
-                if (hasNextPage) {
-                    nextPageElement.click();
-                    Thread.sleep(sleepMillis);
-
-                    //  Scroll down to 'bottom' button
-                    {
-                        int posY = footerElement.getLocation().getY();
-
-                        for(int i = 0; i < (posY - startPosY) / 10; i++) {
-                            js.executeScript("window.scrollBy(0,10)", "");
+                        if (nextPageElements.size() > 0) {
+                            nextPageElement = nextPageElements.get(0);
+                            hasNextPage = nextPageElement.getAttribute("class").contains("disabled") ? false : true;
                         }
+
+                        for (WebElement element : pageNumberElements) {
+                            if (element.getAttribute("class").contains("active") &&
+                                    StringUtils.isNotEmpty(element.getText())) {
+                                currentPage = Integer.parseInt(element.getText());
+                            }
+                        }
+                    }
+
+                    //  Log
+                    log.debug("current-page : {}, hasNextPage : {}", currentPage, hasNextPage);
+
+                    //  Save html to file.
+                    if (Objects.nonNull(writer)) {
+                        String pageHTML = driver.getPageSource();
+
+                        writer.write(hotelId, currentPage, pageHTML);
+                    }
+
+                    if (hasNextPage) {
+                        nextPageElement.click();
+                        Thread.sleep(sleepMillis / 2);
+
+                        //  Scroll down to 'bottom' button
+                        {
+                            int posY = footerElement.getLocation().getY();
+
+                            for(int i = 0; i < (posY - startPosY) / 10; i++) {
+                                js.executeScript("window.scrollBy(0,10)", "");
+                            }
+                        }
+
+                        continue;
                     }
                 }
                 else {
-                    break;
+                    //  Save html to file.
+                    if (Objects.nonNull(writer)) {
+                        String pageHTML = driver.getPageSource();
+
+                        writer.write(hotelId, currentPage, pageHTML);
+                    }
                 }
+
+                break;
             } while (true);
         }
         catch (Exception excp) {
