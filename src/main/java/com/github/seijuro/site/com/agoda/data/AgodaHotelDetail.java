@@ -54,6 +54,14 @@ public class AgodaHotelDetail extends HotelBase {
         return hasCasino;
     }
 
+    public int getReviewPageCount() {
+        if (agodaReviewCount > 0) {
+            return (agodaReviewCount / 10) + (agodaReviewCount % 10 == 0 ? 0 : 1);
+        }
+
+        return 1;
+    }
+
     /**
      * Construct
      *

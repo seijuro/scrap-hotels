@@ -33,6 +33,7 @@ public class AgodaDetailHTMLParser implements HTMLPageParser<AgodaHotelDetail> {
         Elements hotelHeaderElements = bodyElement.getElementsByAttributeValue("class", "hotel-header");
         Elements hotelReviewSectionElements = bodyElement.select("div.ReviewSection");              //  summary
         Elements customerReviewSectionElements = bodyElement.select("div.customer-review-section"); //  detail
+        Elements reviewCommentsCountElements = bodyElement.select("div.review-comments-count"); //  detail
         Elements favoriteFeaturesElements = bodyElement.select("div.fav-features__body");
         Elements aboutHotelElements = bodyElement.getElementsByAttributeValue("data-selenium", "abouthotel-panel");
         Element roomsElement = bodyElement.getElementById("roomGridContent");
@@ -49,19 +50,26 @@ public class AgodaDetailHTMLParser implements HTMLPageParser<AgodaHotelDetail> {
             }
         }
 
-        //  review section
-        if (customerReviewSectionElements.size() > 0) {
-            Element customerReviewSectionElement = customerReviewSectionElements.first();
+        //  review section #1
+//        if (customerReviewSectionElements.size() > 0) {
+//            Element customerReviewSectionElement = customerReviewSectionElements.first();
+//
+//            Elements reviewTabElements = customerReviewSectionElement.select("div.review-tab");
+//            for (Element reviewTab : reviewTabElements) {
+//                Elements agodaReviews = reviewTab.getElementsByAttributeValue("data-redirect", "false");
+//
+//                if (agodaReviews.size() > 0) {
+//                    //  아고다 리뷰 카운트
+//                    hotelBuilder.setAgodaReviewCount(Integer.parseInt(agodaReviews.attr("data-count")));
+//                }
+//            }
+//        }
 
-            Elements reviewTabElements = customerReviewSectionElement.select("div.review-tab");
-            for (Element reviewTab : reviewTabElements) {
-                Elements agodaReviews = reviewTab.getElementsByAttributeValue("data-redirect", "false");
-
-                if (agodaReviews.size() > 0) {
-                    //  아고다 리뷰 카운트
-                    hotelBuilder.setAgodaReviewCount(Integer.parseInt(agodaReviews.attr("data-count")));
-                }
-            }
+        //  review section #1 <--
+        if (reviewCommentsCountElements.size() > 0) {
+            String reviewCommentsCountText = reviewCommentsCountElements.first().text();
+            reviewCommentsCountText = reviewCommentsCountText.replace("100%", "");
+            hotelBuilder.setAgodaReviewCount(Integer.parseInt(reviewCommentsCountText.replaceAll("[^0-9]", "")));
         }
 
         if (Objects.nonNull(roomsElement)) {
