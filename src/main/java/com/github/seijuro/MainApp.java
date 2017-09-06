@@ -514,8 +514,8 @@ public class MainApp {
         }
     }
 
-    static final String ROOT_DIR_BOOKING = "/Users/myungjoonlee/Developer/Booking.com";
-    static final String ROOT_DIR_EXPEDIA = "/Users/myungjoonlee/Developer/Expedia.com";
+    static final String ROOT_DIR_BOOKING = "/Users/sogiro/Developer/Booking.com";
+    static final String ROOT_DIR_EXPEDIA = "/Users/sogiro/Developer/Expedia.com";
 
     public static interface HotelParser {
         public abstract void parse(String filepath);
@@ -638,7 +638,7 @@ public class MainApp {
     }
 
     public static void main(String[] args) {
-        System.setProperty("webdriver.chrome.driver", "/Users/myungjoonlee/Desktop/chromedriver");
+        System.setProperty("webdriver.chrome.driver", "/Users/sogiro/Desktop/Scrap/chromedriver");
 
 //        scrapHotelsCom();
 //        scrapBookingCom();
@@ -692,12 +692,21 @@ public class MainApp {
 //                    }
 
                     final String[] arrInputFilepath = {
-                            "/Users/myungjoonlee/Desktop/Agoda/agoda_hotels_1",
-                            "/Users/myungjoonlee/Desktop/Agoda/agoda_hotels_2",
-                            "/Users/myungjoonlee/Desktop/Agoda/agoda_hotels_3",
-                            "/Users/myungjoonlee/Desktop/Agoda/agoda_hotels_4",
-                            "/Users/myungjoonlee/Desktop/Agoda/agoda_hotels_5",
-                            "/Users/myungjoonlee/Desktop/Agoda/agoda_hotels_6"
+                            "/Users/sogiro/Desktop/Agoda/agoda_hotels_1", // 400 record(s)
+                            "/Users/sogiro/Desktop/Agoda/agoda_hotels_2",   // 400 record(s)
+                            "/Users/sogiro/Desktop/Agoda/agoda_hotels_3",   // 400 record(s)
+                            "/Users/sogiro/Desktop/Agoda/agoda_hotels_4",   // 400 record(s)
+                            "/Users/sogiro/Desktop/Agoda/agoda_hotels_5",   // 400 record(s)
+
+                            "/Users/sogiro/Desktop/Agoda/agoda_hotels_2_1", // 500 record(s)
+                            "/Users/sogiro/Desktop/Agoda/agoda_hotels_2_2", // 500 record(s)
+//                            "/Users/sogiro/Desktop/Agoda/agoda_hotels_2_3", // 500 record(s)
+//                            "/Users/sogiro/Desktop/Agoda/agoda_hotels_2_4", // 500 record(s)
+//                            "/Users/sogiro/Desktop/Agoda/agoda_hotels_3_1", // 500 record(s)
+
+//                            "/Users/sogiro/Desktop/Agoda/agoda_hotels_3_2", // 500 record(s)
+//                            "/Users/sogiro/Desktop/Agoda/agoda_hotels_3_3", // 500 record(s)
+//                            "/Users/sogiro/Desktop/Agoda/agoda_hotels_3_4"  // 500 record(s)
                     };
 
                     for (final String inputFilepath : arrInputFilepath) {
@@ -710,7 +719,7 @@ public class MainApp {
                                     WebDriver driver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
 
                                     BufferedReader reader = new BufferedReader(new FileReader(inputFilepath));
-                                    AgodaHotelReviewHTMLWriter writer = new AgodaHotelReviewHTMLWriter("/Users/myungjoonlee/Desktop/Agoda-reviews");
+                                    AgodaHotelReviewHTMLWriter writer = new AgodaHotelReviewHTMLWriter("/Users/sogiro/Desktop/Agoda-reviews");
                                     scrapAgodaDescAndReview(writer, reader, driver);
 
                                     reader.close();
