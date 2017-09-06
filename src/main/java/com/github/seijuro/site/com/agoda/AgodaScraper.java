@@ -76,13 +76,11 @@ public class AgodaScraper extends AbstractScraper {
             scrap(requestURL, sleepMillis);
 
             WebElement footerElement = driver.findElement(By.className("footer"));
-            //  Scroll down to 'bottom' button
-            {
-                int posY = footerElement.getLocation().getY();
+            int posY = footerElement.getLocation().getY();
 
-                for(int i = 0; i < (posY - startPosY) / 10; i++) {
-                    js.executeScript("window.scrollBy(0,10)", "");
-                }
+            //  Scroll down to 'bottom' button
+            for(int i = 0; i < (posY - startPosY) / 10; i++) {
+                js.executeScript("window.scrollBy(0,10)", "");
             }
 
             do {
@@ -130,7 +128,7 @@ public class AgodaScraper extends AbstractScraper {
 
                         //  Scroll down to 'bottom' button
                         {
-                            int posY = footerElement.getLocation().getY();
+                            posY = footerElement.getLocation().getY();
 
                             for(int i = 0; i < (posY - startPosY) / 10; i++) {
                                 js.executeScript("window.scrollBy(0,10)", "");
