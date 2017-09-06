@@ -31,7 +31,8 @@ public class AgodaDetailHTMLParser implements HTMLPageParser<AgodaHotelDetail> {
 
         Element bodyElement = document.body();
         Elements hotelHeaderElements = bodyElement.getElementsByAttributeValue("class", "hotel-header");
-        Elements hotelReviewSectionElements = bodyElement.select("div.ReviewSection");
+        Elements hotelReviewSectionElements = bodyElement.select("div.ReviewSection");              //  summary
+        Elements customerReviewSectionElements = bodyElement.select("div.customer-review-section"); //  detail
         Elements favoriteFeaturesElements = bodyElement.select("div.fav-features__body");
         Elements aboutHotelElements = bodyElement.getElementsByAttributeValue("data-selenium", "abouthotel-panel");
         Element roomsElement = bodyElement.getElementById("roomGridContent");
@@ -49,8 +50,18 @@ public class AgodaDetailHTMLParser implements HTMLPageParser<AgodaHotelDetail> {
         }
 
         //  review section
-        if (hotelReviewSectionElements.size() > 0) {
-            Element hotelReviewSectionElement = hotelReviewSectionElements.first();
+        if (customerReviewSectionElements.size() > 0) {
+            Element customerReviewSectionElement = customerReviewSectionElements.first();
+
+            Elements reviewTabElements = customerReviewSectionElement.select("div.review-tab");
+            for (Element reviewTab : reviewTabElements) {
+                Elements agodaReviews = reviewTab.getElementsByAttributeValue("data-redirect", "false");
+
+                if (agodaReviews.size() > 0) {
+                    //  아고다 리뷰 카운트
+                    hotelBuilder.setAgodaReviewCount(Integer.parseInt(agodaReviews.attr("data-count")));
+                }
+            }
         }
 
         if (Objects.nonNull(roomsElement)) {
@@ -106,12 +117,12 @@ public class AgodaDetailHTMLParser implements HTMLPageParser<AgodaHotelDetail> {
 
         //  favorite features
         if (favoriteFeaturesElements.size() > 0) {
-            Element favoriteFeaturesElement = favoriteFeaturesElements.first();
+            Elements favoriteElements = favoriteFeaturesElements.select("li.fav-features__listitem");
 
-            Elements beachElements =favoriteFeaturesElement.select("i[class~='ifcon-beach']");
-
-            if (beachElements.size() > 0) {
-                hotelBuilder.setBeach(beachElements.first().text());
+            for (Element favoriteFeatureElement : favoriteElements) {
+                if (favoriteFeatureElement.child(0).attr("class").contains("ficon-beach")) {
+                    hotelBuilder.setBeach(favoriteFeatureElement.text());
+                }
             }
         }
 
@@ -125,43 +136,51 @@ public class AgodaDetailHTMLParser implements HTMLPageParser<AgodaHotelDetail> {
                 Elements groupElements = featuresInfo.select("div.feature-group");
 
                 for (Element groupElement : groupElements) {
-                    Elements wifiElements = groupElement.select("i[class~='ficon-wifi']");
-                    Elements poolElements = groupElement.select("i[class~='ficon-private-pool']");
+                    //  액티비티 및 레저 활동
+                    if (groupElement.select("i.ficon").attr("class").contains("ficon-private-pool")) {
+                        Elements subSectionElements = groupElement.select("li.list-item");
 
-                    //  인터넷
-                    if (wifiElements.size() > 0) {
-                        //  do nothings
+                        for (Element subSectionItem : subSectionElements) {
+                            Elements icons = subSectionItem.select("i.ficon");
+
+                            for (Element icon : icons) {
+                                String className = icon.attr("class");
+                                if (className.contains("ficon-fitness-center")) {
+                                    //  피트니스센터
+                                    hotelBuilder.setHasFitness(true);
+                                }
+                                else if (className.contains("ficon-casino")) {
+                                    //  카지노
+                                    hotelBuilder.setHasCasino(true);
+                                }
+                                else if (className.contains("ficon-outdoor-pool")) {
+                                    //  실외 수영장
+                                    hotelBuilder.setHasPool(true);
+                                }
+                                else if (className.contains("ficon-restaurant")) {
+                                    //  레스토랑
+                                    hotelBuilder.setHasRestaurant(true);
+                                }
+                            }
+                        }
                     }
 
-                    //  액티비티 및 레저 활동
-                    if (poolElements.size() > 0) {
-                        Elements fitnessElements = poolElements.select("i[class~='ficon-fitness-center'");
-                        Elements casinoElements = poolElements.select("i[class~='ficon-casino'");
-                        Elements outdoorPoolElements = poolElements.select("i[class~='ficon-outdoor-pool'");
-                        Elements restaurantPoolElements = poolElements.select("i[class~='ficon-restaurant'");
+                    //  식음료 시설/서비스
+                    else if (groupElement.select("i.ficon").attr("class").contains("ficon-restaurant")) {
+                        Elements subSectionElements = groupElement.select("li.list-item");
 
-                        if (fitnessElements.size() > 0) {
-                            //  피트니스센터
-                            hotelBuilder.setHasFitness(true);
+                        for (Element subSectionItem : subSectionElements) {
+                            Elements icons = subSectionItem.select("i.ficon");
+
+                            for (Element icon : icons) {
+                                String className = icon.attr("class");
+                                if (className.contains("ficon-restaurant")) {
+                                    //  레스토랑
+                                    hotelBuilder.setHasRestaurant(true);
+                                }
+                            }
                         }
-
-                        if (casinoElements.size() > 0) {
-                            //  카지노
-                            hotelBuilder.setHasCasino(true);
-                        }
-
-                        if (outdoorPoolElements.size() > 0) {
-                            //  실외 수영장
-                            hotelBuilder.setHasPool(true);
-                        }
-
-                        if (restaurantPoolElements.size() > 0) {
-                            //  레스토랑
-                            hotelBuilder.setHasRestaurant(true);
-                        }
-                     }
-
-
+                    }
                 }
             }
 
