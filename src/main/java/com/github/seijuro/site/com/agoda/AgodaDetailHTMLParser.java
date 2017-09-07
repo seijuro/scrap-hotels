@@ -65,7 +65,7 @@ public class AgodaDetailHTMLParser implements HTMLPageParser<AgodaHotelDetail> {
 //            }
 //        }
 
-        //  review section #1 <--
+        //  review section #2 <--
         if (reviewCommentsCountElements.size() > 0) {
             String reviewCommentsCountText = reviewCommentsCountElements.first().text();
             reviewCommentsCountText = reviewCommentsCountText.replace("100%", "");
