@@ -33,6 +33,7 @@ public class AgodaDetailHTMLParser implements HTMLPageParser<AgodaHotelDetail> {
         Elements hotelHeaderElements = bodyElement.getElementsByAttributeValue("class", "hotel-header");
         Elements hotelReviewSectionElements = bodyElement.select("div.ReviewSection");              //  summary
         Elements customerReviewSectionElements = bodyElement.select("div.customer-review-section"); //  detail
+        Element hotelReviewDetailElement = bodyElement.getElementById("hotelreview-detail-item");
         Elements reviewCommentsCountElements = bodyElement.select("div.review-comments-count"); //  detail
         Elements favoriteFeaturesElements = bodyElement.select("div.fav-features__body");
         Elements aboutHotelElements = bodyElement.getElementsByAttributeValue("data-selenium", "abouthotel-panel");
@@ -65,11 +66,16 @@ public class AgodaDetailHTMLParser implements HTMLPageParser<AgodaHotelDetail> {
 //            }
 //        }
 
-        //  review section #1 <--
-        if (reviewCommentsCountElements.size() > 0) {
-            String reviewCommentsCountText = reviewCommentsCountElements.first().text();
-            reviewCommentsCountText = reviewCommentsCountText.replace("100%", "");
-            hotelBuilder.setAgodaReviewCount(Integer.parseInt(reviewCommentsCountText.replaceAll("[^0-9]", "")));
+        //  review section #2
+//        if (reviewCommentsCountElements.size() > 0) {
+//            String reviewCommentsCountText = reviewCommentsCountElements.first().text();
+//            reviewCommentsCountText = reviewCommentsCountText.replace("100%", "");
+//            hotelBuilder.setAgodaReviewCount(Integer.parseInt(reviewCommentsCountText.replaceAll("[^0-9]", "")));
+//        }
+
+        //  review section #3 <--
+        if (Objects.nonNull(hotelReviewDetailElement)) {
+            hotelBuilder.setAgodaReviewCount(Integer.parseInt(hotelReviewDetailElement.attr("data-totalindex")));
         }
 
         if (Objects.nonNull(roomsElement)) {

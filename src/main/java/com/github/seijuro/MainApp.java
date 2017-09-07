@@ -1,20 +1,22 @@
 package com.github.seijuro;
 
+import com.github.seijuro.db.reader.ExpediaHotelBaseReader;
+import com.github.seijuro.db.reader.ExpediaSnaphostReader;
 import com.github.seijuro.http.rest.IURLEncoder;
 import com.github.seijuro.http.rest.RestfulAPIResponse;
 import com.github.seijuro.search.query.Sort;
-import com.github.seijuro.site.com.agoda.AgodaDetailHTMLParser;
-import com.github.seijuro.site.com.agoda.AgodaHTMLParser;
-import com.github.seijuro.site.com.agoda.AgodaHotelReviewHTMLWriter;
-import com.github.seijuro.site.com.agoda.AgodaScraper;
+import com.github.seijuro.site.com.agoda.*;
 import com.github.seijuro.site.com.agoda.data.AgodaHotel;
 import com.github.seijuro.site.com.agoda.data.AgodaHotelDetail;
+import com.github.seijuro.site.com.agoda.data.AgodaHotelReview;
 import com.github.seijuro.site.com.agoda.query.CheckIn;
 import com.github.seijuro.site.com.agoda.query.CheckOut;
 import com.github.seijuro.site.com.booking.BookingHTMLPageParser;
 import com.github.seijuro.site.com.booking.data.BookingHotel;
 import com.github.seijuro.site.com.expedia.ExpediaScraper;
 import com.github.seijuro.site.com.expedia.ExpediaHTMLPageParser;
+import com.github.seijuro.site.com.expedia.ExpediaHotelDetailHTMLParser;
+import com.github.seijuro.site.com.expedia.data.ExpediaHotelDetail;
 import com.github.seijuro.site.com.expedia.query.Date;
 import com.github.seijuro.site.com.expedia.query.Lodging;
 import com.github.seijuro.site.com.hotels.Destination;
@@ -34,27 +36,17 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.remote.DesiredCapabilities;
-import org.openqa.selenium.remote.RemoteWebDriver;
 
-import javax.xml.parsers.DocumentBuilder;
 import java.io.*;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.net.URLEncoder;
-import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 @Log4j2
 public class MainApp {
     @Getter
-    public static final String UserHomePath = "/Users/sogiro";
+    public static final String UserHomePath = "/Users/myungjoonlee";
     static final String ROOT_DIR_BOOKING = UserHomePath + "/Developer/Booking.com";
     static final String ROOT_DIR_EXPEDIA = UserHomePath + "/Developer/Expedia.com";
     static final String ROOT_DIR_AGODA = UserHomePath + "/Desktop/Agoda.com";
@@ -145,12 +137,12 @@ public class MainApp {
     }
 
     static MySQLConnectionString getMySQLConnectionString() {
+
         MySQLConnectionString connString = new MySQLConnectionString();
         connString.setHost("chaos");
         connString.setDatabase("KDI");
         connString.setUser("kds");
         connString.setPassword("kds0809");
-
         return connString;
     }
 
@@ -803,6 +795,112 @@ public class MainApp {
 
 
 
+
+    public static void parseHotelReviews(AgodaHotelReviewWriter writer, File... files) {
+        for (File file : files) {
+            if (file.isDirectory()) {
+                parseHotelReviews(writer, file.listFiles());
+            }
+            else {
+                //  Log
+                log.debug("filename : {}", file.getName());
+
+                parseAgodaHotelReview(writer, file);
+            }
+        }
+    }
+
+    public static void parseAgodaHotelReview(AgodaHotelReviewWriter writer, File file) {
+        try {
+            String[] tokens = file.getAbsolutePath().split(File.separator);
+            String filename = tokens[tokens.length - 1];
+            String hotelId = tokens[tokens.length - 2];
+            String line;
+
+            StringBuffer content = new StringBuffer();
+            BufferedReader freader = new BufferedReader(new FileReader(file));
+
+            while ((line = freader.readLine()) != null) {
+                content.append(line);
+            }
+
+            AgodaHotelReviewHTMLParser parser = new AgodaHotelReviewHTMLParser(hotelId);
+
+            //  Log
+            log.debug("parse HTML file ({}) ...", filename);
+            List<AgodaHotelReview> results = parser.parse(content.toString());
+            writer.write(results.toArray(new AgodaHotelReview[results.size()]), null, null, null, null, null, null, -1);
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+    }
+
+
+    public static void parseExpediaHotelDetailHTMLPage(ExpediaHotelDetailWriter writer, String domain, String hotelId, String html) {
+        ExpediaHotelDetailHTMLParser parser = new ExpediaHotelDetailHTMLParser(hotelId);
+        List<ExpediaHotelDetail> restuls = parser.parse(html);
+
+        if (restuls.size() > 0) {
+            writer.write(restuls.toArray(new ExpediaHotelDetail[restuls.size()]), domain, null, null, null, null, null, -1);
+        }
+    }
+
+    public static void parseExpediaHotelDetails() {
+        try {
+            MySQLConnectionString connectionString = getMySQLConnectionString();
+
+            Class.forName("com.mysql.jdbc.Driver");
+            Connection connection = DriverManager.getConnection(connectionString.toConnectionString(), connectionString.getUser(), connectionString.getPassword());
+            connection.setAutoCommit(false);
+
+            ExpediaHotelBaseReader expediaHotelBaseReader = new ExpediaHotelBaseReader(connection);
+            ExpediaSnaphostReader snaphostReader = new ExpediaSnaphostReader(connection);
+            ExpediaHotelDetailWriter writer = new ExpediaHotelDetailWriter(connection);
+
+            List<String> hotelIds = expediaHotelBaseReader.readHotelIds();
+            final String domain = "Expedia.com";
+            int count = 0;
+            int totalCount = hotelIds.size();
+
+            //  release
+            expediaHotelBaseReader = null;
+
+            //  Log
+            log.info("PROCESS ... ({} / {})", count, totalCount);
+
+            for (String hotelId : hotelIds) {
+                //  Log
+                log.info("PROCESS : PARSING (hotel_id : {})", hotelId);
+
+
+                String pageSource = snaphostReader.readHTMLPageSource(domain, hotelId, 0, false);
+
+                if (Objects.nonNull(pageSource)) {
+                    parseExpediaHotelDetailHTMLPage(writer, domain, hotelId, pageSource);
+
+                    //  Log
+                    log.info("PROCESS ... {} / {}", ++count, totalCount);
+
+                    connection.commit();
+                }
+                else {
+                    //
+                    log.warn("No snapshot! (hotel_id : {})", hotelId);
+                }
+            }
+
+            //  Log
+            log.info("PROCESS : DONE ({} / {})", ++count, totalCount);
+
+            connection.close();
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+    }
+
+
     public static void main(String[] args) {
         System.setProperty("webdriver.chrome.driver", getUserHomePath() + "/Desktop/chromedriver");
 
@@ -835,6 +933,12 @@ public class MainApp {
 //                driver.close();
 //            }
 
+
+        {
+            parseExpediaHotelDetails();
+        }
+
+
         /**
          * site : Agoda.com
          * source : site
@@ -857,26 +961,25 @@ public class MainApp {
 //                        fwriter.close();
 //                    }
 
-            for (int index = 0; index < 5; ++index) {
-                new Thread(() -> {
-                    Capabilities capabilities = DesiredCapabilities.chrome();
-
-                    try {
-                        WebDriver webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
-
-                        AgodaHotelReviewHTMLWriter writer = new AgodaHotelReviewHTMLWriter(getUserHomePath() + "/Desktop/Agoda-reviews");
-                        scrapAgodaDescAndReview(writer, webDriver);
-
-                        webDriver.quit();
-                    } catch (MalformedURLException excp) {
-                        excp.printStackTrace();
-                    } catch (IOException excp) {
-                        excp.printStackTrace();
-                    }
-                }).start();
-            }
-        }
-        catch (Exception excp) {
+//            for (int index = 0; index < 5; ++index) {
+//                new Thread(() -> {
+//                    Capabilities capabilities = DesiredCapabilities.chrome();
+//
+//                    try {
+//                        WebDriver webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
+//
+//                        AgodaHotelReviewHTMLWriter writer = new AgodaHotelReviewHTMLWriter(getUserHomePath() + "/Desktop/Agoda-reviews");
+//                        scrapAgodaDescAndReview(writer, webDriver);
+//
+//                        webDriver.quit();
+//                    } catch (MalformedURLException excp) {
+//                        excp.printStackTrace();
+//                    } catch (IOException excp) {
+//                        excp.printStackTrace();
+//                    }
+//                }).start();
+//            }
+        } catch (Exception excp) {
             excp.printStackTrace();
         }
 
@@ -909,16 +1012,63 @@ public class MainApp {
 //                }
 //            }
 
+        /**
+         * hotel detail
+         */
+//        try {
+//            final String rootPath = getUserHomePath() + "/Desktop/Agoda-reviews";
+//            File fileRootpath = new File(rootPath);
+//
+//            MySQLConnectionString connectionString = getMySQLConnectionString();
+//
+//            Class.forName("com.mysql.jdbc.Driver");
+//            Connection connection = DriverManager.getConnection(connectionString.toConnectionString(), connectionString.getUser(), connectionString.getPassword());
+//            connection.setAutoCommit(false);
+//            AgodaHotelDetailWriter writer = new AgodaHotelDetailWriter(connection);
+//
+//            parseHotelDetails(writer, fileRootpath.listFiles());
+//
+//            connection.close();
+//
+//            FileWriter fileWriter = new FileWriter(getUserHomePath() + "/Desktop/AgodaReviewCount.txt");
+//            extractReviewCounts(fileWriter, fileRootpath.listFiles());
+//            fileWriter.close();
+//        }
+//        catch (Exception excp) {
+//            excp.printStackTrace();
+//        }
+
+        /**
+         * Agoda.com - parse all reviews
+         */
+//        try {
+//            final String rootPath = getUserHomePath() + "/Desktop/Agoda-reviews";
+//            File fileRootpath = new File(rootPath);
+//
+//            MySQLConnectionString connectionString = getMySQLConnectionString();
+//
+//            Class.forName("com.mysql.jdbc.Driver");
+//            Connection connection = DriverManager.getConnection(connectionString.toConnectionString(), connectionString.getUser(), connectionString.getPassword());
+//            connection.setAutoCommit(false);
+//            AgodaHotelReviewWriter writer = new AgodaHotelReviewWriter(connection);
+//
+//            parseHotelReviews(writer, fileRootpath.listFiles());
+//
+//            connection.close();
+//        }
+//        catch (Exception excp) {
+//            excp.printStackTrace();
+//        }
 
             /**
              * extract review counts from hotel-detail files(scrapped)
              */
-            {
+//            {
 //                final String rootPath = getUserHomePath() + "/Desktop/Agoda-reviews";
 //                File fileRootpath = new File(rootPath);
-
+//
 //                MySQLConnectionString connectionString = getMySQLConnectionString();
-
+//
 //                Class.forName("com.mysql.jdbc.Driver");
 //                Connection connection = DriverManager.getConnection(connectionString.toConnectionString(), connectionString.getUser(), connectionString.getPassword());
 //                connection.setAutoCommit(false);
@@ -931,7 +1081,7 @@ public class MainApp {
 //                FileWriter fileWriter = new FileWriter(getUserHomePath() + "/Desktop/AgodaReviewCount.txt");
 //                extractReviewCounts(fileWriter, fileRootpath.listFiles());
 //                fileWriter.close();
-            }
+//            }
 
             /**
              * site : Booking.com
@@ -958,3 +1108,4 @@ public class MainApp {
 //        }
     }
 }
+
