@@ -4,6 +4,6 @@ import com.github.seijuro.site.HotelBase;
 
 import java.util.List;
 
-public interface HTMLPageParser<T extends HotelBase> {
+public interface HTMLPageParser<T> {
     public abstract List<T> parse(String html);
 }
