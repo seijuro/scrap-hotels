@@ -1,7 +1,6 @@
 package com.github.seijuro.snapshot;
 
 import com.github.seijuro.db.schema.AgodaDetailTable;
-import com.github.seijuro.site.com.agoda.data.AgodaHotel;
 import com.github.seijuro.site.com.agoda.data.AgodaHotelDetail;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -100,10 +99,10 @@ public class AgodaHotelDetailWriter extends AbstractDBWritter<AgodaHotelDetail> 
                 try {
                     stmt.setString(1, StringUtils.stripToEmpty(hotelDetail.getId()));
                     stmt.setString(2, StringUtils.stripToEmpty(hotelDetail.getAddress()));
-                    stmt.setString(3, StringUtils.stripToEmpty(hotelDetail.getConstructedYear()));
-                    stmt.setString(4, StringUtils.stripToEmpty(hotelDetail.getFloor()));
+                    stmt.setString(3, StringUtils.stripToEmpty(hotelDetail.getBuiltDate()));
+                    stmt.setString(4, StringUtils.stripToEmpty(hotelDetail.getFloors()));
                     stmt.setString(5, StringUtils.stripToEmpty(hotelDetail.getRooms()));
-                    stmt.setString(6, StringUtils.stripToEmpty(hotelDetail.getBeach()));
+                    stmt.setString(6, StringUtils.stripToEmpty(hotelDetail.getBeachText()));
                     stmt.setInt(7, hotelDetail.hasRestaurant() ? 1 : 0);
                     stmt.setInt(8, hotelDetail.hasPool() ? 1 : 0);
                     stmt.setInt(9, hotelDetail.hasFitness() ? 1 : 0);

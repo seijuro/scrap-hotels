@@ -13,6 +13,7 @@ import com.github.seijuro.site.com.agoda.query.CheckIn;
 import com.github.seijuro.site.com.agoda.query.CheckOut;
 import com.github.seijuro.site.com.booking.BookingHTMLPageParser;
 import com.github.seijuro.site.com.booking.data.BookingHotel;
+import com.github.seijuro.site.com.expedia.ExpediaHotelReviewHTMLParser;
 import com.github.seijuro.site.com.expedia.ExpediaScraper;
 import com.github.seijuro.site.com.expedia.ExpediaHTMLPageParser;
 import com.github.seijuro.site.com.expedia.ExpediaHotelDetailHTMLParser;
@@ -36,8 +37,12 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.remote.DesiredCapabilities;
+import org.openqa.selenium.remote.RemoteWebDriver;
 
 import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.net.URLEncoder;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -934,8 +939,49 @@ public class MainApp {
 //            }
 
 
-        {
-            parseExpediaHotelDetails();
+        try {
+            Capabilities capabilities = DesiredCapabilities.chrome();
+
+            try {
+                WebDriver webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
+
+                webDriver.get("https://www.expedia.co.kr/Jeju-Island-Hotels-Playce-Camp-Jeju.h18519688.Hotel-Information?chkin=2017.10.15&chkout=2017.10.16&rm1=a2&regionId=6049718&hwrqCacheKey=528f911b-0de3-4105-ab20-11faabf78219HWRQ1504799632185&vip=false&c=fca1f5f7-dd52-4569-bb81-b4cc09f8f5c3&&exp_dp=48182&exp_ts=1504799632934&exp_curr=KRW&swpToggleOn=false&exp_pg=HSR");
+                Thread.sleep(3 * DateUtils.MILLIS_PER_SECOND);
+
+                WebElement footerElement = webDriver.findElement(By.xpath("//div[@id='site-footer-wrap']"));
+                WebElement buttonReviewTab = webDriver.findElement(By.xpath("//button[@id='tab-reviews']"));
+                int scrollEndPosY = buttonReviewTab.getLocation().getY();
+                int scrollPx = 10;
+
+                for (int pos = 0; pos < scrollEndPosY - buttonReviewTab.getSize().height * 5; pos += scrollPx) {
+                    ((JavascriptExecutor)webDriver).executeScript("window.scrollBy(0,10)", "");
+                }
+
+                buttonReviewTab.click();
+
+                //  sleep for loading reviews ...
+                Thread.sleep(3 * DateUtils.MILLIS_PER_SECOND);
+
+                scrollEndPosY = footerElement.getLocation().getY();
+                for (int pos = buttonReviewTab.getLocation().getY(); pos < scrollEndPosY; pos += scrollPx) {
+                    ((JavascriptExecutor)webDriver).executeScript("window.scrollBy(0,10)", "");
+                }
+
+                ExpediaHotelReviewHTMLParser parser = new ExpediaHotelReviewHTMLParser("1");
+
+                parser.parse(webDriver.getPageSource());
+
+                webDriver.quit();
+            }
+            catch (MalformedURLException excp) {
+                excp.printStackTrace();
+            }
+            catch (IOException excp) {
+                excp.printStackTrace();
+            }
+        }
+        catch (InterruptedException excp) {
+            excp.printStackTrace();
         }
 
 

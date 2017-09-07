@@ -1,6 +1,6 @@
 package com.github.seijuro.site.com.expedia.data;
 
-import com.github.seijuro.site.HotelBase;
+import com.github.seijuro.site.common.data.Hotel;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @ToString
-public class ExpediaHotel extends HotelBase {
+public class ExpediaHotel extends Hotel {
     @Getter
     private final String secondaryName;
     @Getter
@@ -55,7 +55,7 @@ public class ExpediaHotel extends HotelBase {
         discountRibbons = builder.discountRibbons;
     }
 
-    public static class Builder extends HotelBase.Builder {
+    public static class Builder extends Hotel.Builder {
         @Setter
         private String secondaryName = StringUtils.EMPTY;
         @Setter

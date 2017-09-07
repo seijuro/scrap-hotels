@@ -1,7 +1,6 @@
 package com.github.seijuro.site.com.expedia;
 
 import com.github.seijuro.parser.HTMLPageParser;
-import com.github.seijuro.site.HotelBase;
 import com.github.seijuro.site.com.expedia.data.ExpediaHotel;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;

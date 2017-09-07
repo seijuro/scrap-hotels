@@ -1,7 +1,7 @@
 package com.github.seijuro.site.com.agoda;
 
-import com.github.seijuro.parser.HTMLPageParser;
 import com.github.seijuro.site.com.agoda.data.AgodaHotelReview;
+import com.github.seijuro.site.common.parser.HotelReviewParser;
 import org.apache.commons.lang3.StringUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -11,11 +11,14 @@ import org.jsoup.select.Elements;
 import java.util.ArrayList;
 import java.util.List;
 
-public class AgodaHotelReviewHTMLParser implements HTMLPageParser<AgodaHotelReview> {
-    private final String hotelId;
-
+public class AgodaHotelReviewHTMLParser extends HotelReviewParser {
+    /**
+     * Construct <code>AgodaHotelReviewHTMLParser</code>
+     *
+     * @param hotelId
+     */
     public AgodaHotelReviewHTMLParser(String hotelId) {
-        this.hotelId = hotelId;
+        super(hotelId);
     }
 
     @Override
@@ -30,7 +33,7 @@ public class AgodaHotelReviewHTMLParser implements HTMLPageParser<AgodaHotelRevi
         for (Element hotelReviewDetailElement : hotelReviewDetailElements) {
             AgodaHotelReview.Builder reviewBuiler = new AgodaHotelReview.Builder();
 
-            reviewBuiler.setHotelId(hotelId);
+            reviewBuiler.setHotelId(getHotelId());
             reviewBuiler.setReviewId(hotelReviewDetailElement.attr("data-id"));
 
             String locale = StringUtils.stripToEmpty(hotelReviewDetailElement.attr("data-locale"));
@@ -64,8 +67,8 @@ public class AgodaHotelReviewHTMLParser implements HTMLPageParser<AgodaHotelRevi
                 if (nameElements.size() > 0) {
                     String[] tokens = StringUtils.stripToEmpty(nameElements.first().text()).split("/");
 
-                    reviewBuiler.setReviewerName(tokens[0]);
-                    if (tokens.length > 1) { reviewBuiler.setCountry(tokens[1]); }
+                    reviewBuiler.setReviewer(tokens[0]);
+                    if (tokens.length > 1) { reviewBuiler.setLocation(tokens[1]); }
                 }
 
                 //  room type

@@ -135,7 +135,7 @@ public class AgodaDetailHTMLParser implements HTMLPageParser<AgodaHotelDetail> {
 
             for (Element favoriteFeatureElement : favoriteElements) {
                 if (favoriteFeatureElement.child(0).attr("class").contains("ficon-beach")) {
-                    hotelBuilder.setBeach(favoriteFeatureElement.text());
+                    hotelBuilder.setBeachText(favoriteFeatureElement.text());
                 }
             }
         }
@@ -224,14 +224,14 @@ public class AgodaDetailHTMLParser implements HTMLPageParser<AgodaHotelDetail> {
                                 // 건축 년도
                                 String[] tokens = info.text().split(":");
 
-                                hotelBuilder.setBuiltYear(StringUtils.normalizeSpace(tokens[tokens.length - 1]));
+                                hotelBuilder.setBuiltDate(StringUtils.normalizeSpace(tokens[tokens.length - 1]));
                             }
 
                             if (childElement.child(0).attr("class").contains("ficon-number-of-floors")) {
                                 // 총 층수
                                 String[] tokens = info.text().split(":");
 
-                                hotelBuilder.setFloor(StringUtils.normalizeSpace(tokens[tokens.length - 1]));
+                                hotelBuilder.setFloors(StringUtils.normalizeSpace(tokens[tokens.length - 1]));
                             }
                         }
                     }

@@ -106,8 +106,8 @@ public class AgodaHotelReviewWriter extends AbstractDBWritter<AgodaHotelReview> 
                     stmt.setString(8, StringUtils.stripToEmpty(hotelReview.getTitle()));
                     stmt.setString(9, StringUtils.stripToEmpty(hotelReview.getLocale()));
                     stmt.setInt(10, hotelReview.hasResponse() ? 1 : 0);
-                    stmt.setString(11, StringUtils.stripToEmpty(hotelReview.getReviewerName()));
-                    stmt.setString(12, StringUtils.stripToEmpty(hotelReview.getCountry()));
+                    stmt.setString(11, StringUtils.stripToEmpty(hotelReview.getReviewer()));
+                    stmt.setString(12, StringUtils.stripToEmpty(hotelReview.getLocation()));
 
                     stmt.executeUpdate();
                 }

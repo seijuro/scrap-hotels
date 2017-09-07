@@ -210,7 +210,7 @@ public class ExpediaHotelDetailHTMLParser implements HTMLPageParser<ExpediaHotel
                                 if (text.contains("준공연도")) {
                                     String[] tokens = text.split(":");
                                     if (tokens.length > 1) {
-                                        hotelBuilder.setBuiltYear(StringUtils.normalizeSpace(tokens[1]));
+                                        hotelBuilder.setBuiltDate(StringUtils.normalizeSpace(tokens[1]));
                                     }
                                 }
 
@@ -237,7 +237,7 @@ public class ExpediaHotelDetailHTMLParser implements HTMLPageParser<ExpediaHotel
                                 if (text.contains("층 수")) {
                                     String[] tokens = text.split("-");
                                     if (tokens.length > 0) {
-                                        hotelBuilder.setFloor(StringUtils.normalizeSpace(tokens[1]));
+                                        hotelBuilder.setFloors(StringUtils.normalizeSpace(tokens[1]));
                                     }
                                 }
 

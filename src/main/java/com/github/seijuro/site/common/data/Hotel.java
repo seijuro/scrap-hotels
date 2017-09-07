@@ -1,10 +1,10 @@
-package com.github.seijuro.site;
+package com.github.seijuro.site.common.data;
 
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
 
-public abstract class HotelBase {
+public abstract class Hotel {
     @Getter
     private final String domain;
     @Getter
@@ -24,7 +24,7 @@ public abstract class HotelBase {
     @Getter
     private final String linkURL;
 
-    protected HotelBase(Builder builder) {
+    protected Hotel(Builder builder) {
         domain = builder.domain;
         destination = builder.destination;
         sort = builder.sort;
@@ -56,6 +56,6 @@ public abstract class HotelBase {
         @Setter
         private String linkURL = StringUtils.EMPTY;
 
-        public abstract HotelBase build();
+        public abstract Hotel build();
     }
 }

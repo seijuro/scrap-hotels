@@ -2,7 +2,7 @@ package com.github.seijuro.site.com.booking.data;
 
 import com.github.seijuro.CSVConvertable;
 import com.github.seijuro.TSVConvertable;
-import com.github.seijuro.site.HotelBase;
+import com.github.seijuro.site.common.data.Hotel;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @ToString
-public class BookingHotel extends HotelBase implements CSVConvertable, TSVConvertable {
+public class BookingHotel extends Hotel implements CSVConvertable, TSVConvertable {
     @Getter
     private final boolean thumbUpIcon;
     @Getter
@@ -90,7 +90,7 @@ public class BookingHotel extends HotelBase implements CSVConvertable, TSVConver
         return format(",", "\t");
     }
 
-    public static class Builder extends HotelBase.Builder {
+    public static class Builder extends Hotel.Builder {
         @Setter
         private boolean thumbUpIcon = false;
         @Setter

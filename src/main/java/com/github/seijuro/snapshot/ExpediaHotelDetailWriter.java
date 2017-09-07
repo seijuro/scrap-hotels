@@ -104,8 +104,8 @@ public class ExpediaHotelDetailWriter extends  AbstractDBWritter<ExpediaHotelDet
                     stmt.setString(1, StringUtils.stripToEmpty(hotelDetail.getId()));
                     stmt.setString(2, StringUtils.stripToEmpty(hotelDetail.getName()));
                     stmt.setString(3, StringUtils.stripToEmpty(hotelDetail.getAddress()));
-                    stmt.setString(4, StringUtils.stripToEmpty(hotelDetail.getConstructedYear()));
-                    stmt.setString(5, StringUtils.stripToEmpty(hotelDetail.getFloor()));
+                    stmt.setString(4, StringUtils.stripToEmpty(hotelDetail.getBuiltDate()));
+                    stmt.setString(5, StringUtils.stripToEmpty(hotelDetail.getFloors()));
                     stmt.setString(6, StringUtils.stripToEmpty(hotelDetail.getRooms()));
                     stmt.setString(7, StringUtils.stripToEmpty(hotelDetail.getBeach().getDescription()));
                     stmt.setString(8, StringUtils.stripToEmpty(hotelDetail.getStarRating()));
