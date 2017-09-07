@@ -26,12 +26,39 @@ public class ExpediaHotelDetailHTMLParser implements HTMLPageParser<ExpediaHotel
         ExpediaHotelDetail.Builder hotelBuilder = new ExpediaHotelDetail.Builder();
 
         Document document = Jsoup.parse(html);
+        Element body = document.body();
+
+        Elements licensePlateElements = body.select("div.site-content div.page-header div#license-plate");
+        Elements pageHeaderElements = body.select("header.page-header");
         Elements contentWrapElemetns = document.body().select("div.site-content-wrap.hotelInformation");
+        Elements priceElements = pageHeaderElements.select("div #lead-price-container div div a.price.link-to-rooms");
+        Elements guestRatingElements = body.select("div div section section div article div div div.guest-rating span.rating-number");
+        Elements reviewCountElements = body.select("div div section section div article div div a.reviews-link.link-to-reviews span");
+        Elements refProductElements = body.select("div div section #rooms-adn-rates div article table tbody tr.rate-plan.rate-plan-first td.room-info");
+        Elements optionElements = refProductElements.select("td.rate-features");
+
+        if (licensePlateElements.size() > 0) {
+            Elements starRatingElements = licensePlateElements.select("star-rating-wrapper strong.star.rating.star-rating span.icon");
+            Elements addressElements = licensePlateElements.select(("div.address div a.map-link"));
+
+            //  hotel name
+            hotelBuilder.setName(licensePlateElements.first().getElementById("hotel-name").text());
+            //  hotel starRating
+            if (starRatingElements.size() > 0) { hotelBuilder.setStarRating(starRatingElements.first().attr("title")); }
+            //  hotel address
+            if (addressElements.size() > 0) { hotelBuilder.setAddress(StringUtils.normalizeSpace(addressElements.first().text())); }
+        }
+
+        if (guestRatingElements.size() > 0) { hotelBuilder.setGuestRating(guestRatingElements.first().text()); }
+        if (reviewCountElements.size() > 0) { hotelBuilder.setReviewCount(Integer.parseInt(reviewCountElements.first().text())); }
+        if (priceElements.size() > 0) { log.debug("price (ref.) : {}", priceElements.first().text()); }
+        if (optionElements.size() > 0) {
+            Element option = optionElements.first();
+        }
 
         if (contentWrapElemetns.size() > 0) {
             Element siteContent = contentWrapElemetns.first();
 
-            Elements pageHeaderElements = siteContent.select("header.page-header");
             Elements hotelOverviewElements = siteContent.select("hotel-overview");
             Element policiesAndAmenties = siteContent.getElementById("policies-and-amenities");
 
@@ -43,9 +70,6 @@ public class ExpediaHotelDetailHTMLParser implements HTMLPageParser<ExpediaHotel
 
             //  header
             if (pageHeaderElements.size() > 0) {
-                //  Log
-                log.debug("PARSING 'header.page-header'");
-
                 Element pageHeader = pageHeaderElements.first();
 
                 Element leadPriceContainer = pageHeader.getElementById("lead-price-container");
@@ -90,7 +114,6 @@ public class ExpediaHotelDetailHTMLParser implements HTMLPageParser<ExpediaHotel
             if (reviewsSummaryElements.size() > 0) {
                 Element reviewsSummary = reviewsSummaryElements.first();
 
-                Elements guestRatingElements = reviewsSummary.select("div.guest-rating");
                 Elements linkElements = reviewsSummary.select("a.reviews-link.link-to-reviews");
 
                 if (linkElements.size() > 0) {
@@ -279,6 +302,9 @@ public class ExpediaHotelDetailHTMLParser implements HTMLPageParser<ExpediaHotel
                 }
             }
         }
+
+        //  Log
+        log.debug("hotel-detail : {}", hotelBuilder.toString());
 
         return Arrays.asList(hotelBuilder.build());
     }

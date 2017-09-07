@@ -847,7 +847,7 @@ public class MainApp {
         List<ExpediaHotelDetail> restuls = parser.parse(html);
 
         if (restuls.size() > 0) {
-            writer.write(restuls.toArray(new ExpediaHotelDetail[restuls.size()]), domain, null, null, null, null, null, -1);
+            if (Objects.nonNull(writer)) { writer.write(restuls.toArray(new ExpediaHotelDetail[restuls.size()]), domain, null, null, null, null, null, -1); }
         }
     }
 
@@ -944,26 +944,31 @@ public class MainApp {
 
             try {
                 WebDriver webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
+                JavascriptExecutor js = ((JavascriptExecutor)webDriver);
 
                 webDriver.get("https://www.expedia.co.kr/Jeju-Island-Hotels-Playce-Camp-Jeju.h18519688.Hotel-Information?chkin=2017.10.15&chkout=2017.10.16&rm1=a2&regionId=6049718&hwrqCacheKey=528f911b-0de3-4105-ab20-11faabf78219HWRQ1504799632185&vip=false&c=fca1f5f7-dd52-4569-bb81-b4cc09f8f5c3&&exp_dp=48182&exp_ts=1504799632934&exp_curr=KRW&swpToggleOn=false&exp_pg=HSR");
                 Thread.sleep(3 * DateUtils.MILLIS_PER_SECOND);
 
                 WebElement footerElement = webDriver.findElement(By.xpath("//div[@id='site-footer-wrap']"));
-                WebElement buttonReviewTab = webDriver.findElement(By.xpath("//button[@id='tab-reviews']"));
-                int scrollEndPosY = buttonReviewTab.getLocation().getY();
+                int scrollEndPosY = footerElement.getLocation().getY();
                 int scrollPx = 10;
 
-                for (int pos = 0; pos < scrollEndPosY - buttonReviewTab.getSize().height * 5; pos += scrollPx) {
+                for (int pos = 0; pos < scrollEndPosY; pos += scrollPx) {
                     ((JavascriptExecutor)webDriver).executeScript("window.scrollBy(0,10)", "");
                 }
 
-                buttonReviewTab.click();
+                parseExpediaHotelDetailHTMLPage(null, "Expedia.com", "hotel-id-sample", webDriver.getPageSource());
 
-                //  sleep for loading reviews ...
-                Thread.sleep(3 * DateUtils.MILLIS_PER_SECOND);
+                WebElement hotelOverview = webDriver.findElement(By.xpath("//div[@class='hotel-overview']"));
+                js.executeScript("arguments[0].scrollIntoView(true);", hotelOverview);
+
+                WebElement buttonTapReviews = webDriver.findElement(By.xpath("//button[@id='tab-reviews']"));
+                buttonTapReviews.click();
+
+                Thread.sleep(1L * DateUtils.MILLIS_PER_SECOND);
 
                 scrollEndPosY = footerElement.getLocation().getY();
-                for (int pos = buttonReviewTab.getLocation().getY(); pos < scrollEndPosY; pos += scrollPx) {
+                for (int pos = hotelOverview.getLocation().getY(); pos < scrollEndPosY; pos += scrollPx) {
                     ((JavascriptExecutor)webDriver).executeScript("window.scrollBy(0,10)", "");
                 }
 

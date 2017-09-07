@@ -89,7 +89,7 @@ public class AgodaScraper extends AbstractScraper {
                     startPosY = reviewPanelElement.getLocation().getY();
 
                     js.executeScript("arguments[0].scrollIntoView(true);", reviewPanelElement);
-                    Thread.sleep(500);
+                    Thread.sleep(1L * DateUtils.MILLIS_PER_SECOND);
 
                     WebElement nextPageElement = null;
                     boolean hasNextPage = false;

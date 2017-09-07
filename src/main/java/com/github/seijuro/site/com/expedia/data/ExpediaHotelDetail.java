@@ -9,7 +9,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 
 @Log4j2
-@ToString
+@ToString(callSuper = true)
 public class ExpediaHotelDetail extends HotelDetail {
     /**
      * Instance Properties
@@ -37,6 +37,7 @@ public class ExpediaHotelDetail extends HotelDetail {
         reviewCount = builder.reviewCount;
     }
 
+    @ToString(callSuper = true)
     public static class Builder extends HotelDetail.Builder {
         @Setter
         private String guestRating = StringUtils.EMPTY;;
