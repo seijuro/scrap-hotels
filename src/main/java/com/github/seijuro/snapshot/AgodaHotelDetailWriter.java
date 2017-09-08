@@ -21,6 +21,7 @@ public class AgodaHotelDetailWriter extends AbstractDBWritter<AgodaHotelDetail> 
         StringBuffer sb = new StringBuffer("INSERT IGNORE INTO ");
         sb.append(AgodaDetailTable.getTableName()).append("(")
                 .append(AgodaDetailTable.Column.Id.getColumnName()).append(", ")
+                .append(AgodaDetailTable.Column.Name.getColumnName()).append(", ")
                 .append(AgodaDetailTable.Column.Address.getColumnName()).append(", ")
                 .append(AgodaDetailTable.Column.ConstructedYear.getColumnName()).append(", ")
                 .append(AgodaDetailTable.Column.Floor.getColumnName()).append(", ")
@@ -33,7 +34,7 @@ public class AgodaHotelDetailWriter extends AbstractDBWritter<AgodaHotelDetail> 
                 .append(AgodaDetailTable.Column.TaxIncluded.getColumnName()).append(", ")
                 .append(AgodaDetailTable.Column.BreakfastInclude.getColumnName()).append(", ")
                 .append(AgodaDetailTable.Column.AgodaReviewCount.getColumnName()).append(") ")
-                .append("VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ");
+                .append("VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ");
         UpsertSQL = sb.toString();
     }
 
@@ -98,18 +99,19 @@ public class AgodaHotelDetailWriter extends AbstractDBWritter<AgodaHotelDetail> 
             for (AgodaHotelDetail hotelDetail : hotelDetails) {
                 try {
                     stmt.setString(1, StringUtils.stripToEmpty(hotelDetail.getId()));
-                    stmt.setString(2, StringUtils.stripToEmpty(hotelDetail.getAddress()));
-                    stmt.setString(3, StringUtils.stripToEmpty(hotelDetail.getBuiltDate()));
-                    stmt.setString(4, StringUtils.stripToEmpty(hotelDetail.getFloors()));
-                    stmt.setString(5, StringUtils.stripToEmpty(hotelDetail.getRooms()));
-                    stmt.setString(6, StringUtils.stripToEmpty(hotelDetail.getBeachText()));
-                    stmt.setInt(7, hotelDetail.hasRestaurant() ? 1 : 0);
-                    stmt.setInt(8, hotelDetail.hasPool() ? 1 : 0);
-                    stmt.setInt(9, hotelDetail.hasFitness() ? 1 : 0);
-                    stmt.setInt(10, hotelDetail.hasCasino() ? 1 : 0);
-                    stmt.setInt(11, hotelDetail.isTaxIncluded() ? 1 : 0);
-                    stmt.setInt(12, hotelDetail.isBreakfastInclude() ? 1 : 0);
-                    stmt.setInt(13, hotelDetail.getAgodaReviewCount());
+                    stmt.setString(2, StringUtils.stripToEmpty(hotelDetail.getName()));
+                    stmt.setString(3, StringUtils.stripToEmpty(hotelDetail.getAddress()));
+                    stmt.setString(4, StringUtils.stripToEmpty(hotelDetail.getBuiltDate()));
+                    stmt.setString(5, StringUtils.stripToEmpty(hotelDetail.getFloors()));
+                    stmt.setString(6, StringUtils.stripToEmpty(hotelDetail.getRooms()));
+                    stmt.setString(7, StringUtils.stripToEmpty(hotelDetail.getBeachText()));
+                    stmt.setInt(8, hotelDetail.hasRestaurant() ? 1 : 0);
+                    stmt.setInt(9, hotelDetail.hasPool() ? 1 : 0);
+                    stmt.setInt(10, hotelDetail.hasFitness() ? 1 : 0);
+                    stmt.setInt(11, hotelDetail.hasCasino() ? 1 : 0);
+                    stmt.setInt(12, hotelDetail.isTaxIncluded() ? 1 : 0);
+                    stmt.setInt(13, hotelDetail.isBreakfastInclude() ? 1 : 0);
+                    stmt.setInt(14, hotelDetail.getAgodaReviewCount());
 
                     stmt.executeUpdate();
                 }

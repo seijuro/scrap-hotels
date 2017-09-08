@@ -17,9 +17,13 @@ public class ExpediaHotelDetail extends HotelDetail {
     @Getter
     private String guestRating;
     @Getter
+    private String refProductPrice;
+    @Getter
     private boolean taxIncluded;
     @Getter
     private boolean breakfastInclude;
+    @Getter
+    private  boolean freeCancellation;
     @Getter
     private int reviewCount;
 
@@ -32,9 +36,11 @@ public class ExpediaHotelDetail extends HotelDetail {
         super(builder);
 
         guestRating = builder.guestRating;
+        refProductPrice = builder.refProductPrice;
         taxIncluded = builder.taxIncluded;
         breakfastInclude = builder.breakfastInclude;
         reviewCount = builder.reviewCount;
+        freeCancellation = builder.freeCancellation;
     }
 
     @ToString(callSuper = true)
@@ -42,9 +48,13 @@ public class ExpediaHotelDetail extends HotelDetail {
         @Setter
         private String guestRating = StringUtils.EMPTY;;
         @Setter
+        private String refProductPrice = StringUtils.EMPTY;
+        @Setter
         private boolean taxIncluded = true;
         @Setter
         private boolean breakfastInclude = false;
+        @Setter
+        private boolean freeCancellation = false;
         @Setter
         private int reviewCount = 0;
 

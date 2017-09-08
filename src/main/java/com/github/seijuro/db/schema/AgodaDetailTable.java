@@ -5,11 +5,12 @@ import lombok.Getter;
 
 public class AgodaDetailTable {
     @Getter
-    private static final String TableName = "AgodaHotelDetail";
+    private static final String TableName = "AgodaHotelDetailBase";
 
     /*
-    CREATE TABLE `AgodaHotelDetail` (
+    CREATE TABLE `AgodaHotelDetailBase` (
   `id` varchar(10) NOT NULL,
+  `name` varchar(255) NOT NULL,
   `address` varchar(255) NOT NULL,
   `construct_year` varchar(10) NOT NULL,
   `floor` varchar(10) NOT NULL,
@@ -30,6 +31,7 @@ public class AgodaDetailTable {
      */
     public enum Column implements DBColumn {
         Id("id"),
+        Name("name"),
         Address("address"),
         ConstructedYear("construct_year"),
         Floor("floor"),

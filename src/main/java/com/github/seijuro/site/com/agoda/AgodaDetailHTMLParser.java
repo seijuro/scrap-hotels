@@ -41,13 +41,17 @@ public class AgodaDetailHTMLParser implements HTMLPageParser<AgodaHotelDetail> {
 
         //  hotel header
         if (hotelHeaderElements.size() > 0) {
-            Element hotelHeaderElement = hotelHeaderElements.size() > 0 ? hotelHeaderElements.first() : null;
-            Elements addressElements = Objects.nonNull(hotelHeaderElement) ? hotelHeaderElement.getElementsByAttributeValue("class", "hotel-header-info-address") : null;
-            Element addressElement = Objects.nonNull(addressElements) ? addressElements.first() : null;
+            Element hotelHeaderElement = hotelHeaderElements.first();
 
-            if (Objects.nonNull(addressElement)) {
+            Elements nameElements = hotelHeaderElement.select("div.hotel-header-info div.hotel-header-info-name h1.hotel-header-info-name-text");
+            Elements addressElements = hotelHeaderElement.select("div.hotel-header-info div.hotel-header-info-address a.hotel-header-info-address-text");
+
+            if (nameElements.size() > 0) {
+                hotelBuilder.setName(StringUtils.normalizeSpace(nameElements.first().text()));
+            }
+            if (addressElements.size() > 0) {
                 //  주소
-                hotelBuilder.setAddress(StringUtils.normalizeSpace(addressElement.text()));
+                hotelBuilder.setAddress(StringUtils.normalizeSpace(addressElements.first().text()));
             }
         }
 

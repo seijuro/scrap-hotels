@@ -109,7 +109,7 @@ public class HotelDetail {
         @Setter
         private String starRating = StringUtils.EMPTY;
         @Setter
-        private BeachInfo beach = null;
+        private BeachInfo beach = BeachInfo.NONE;
         @Setter
         private boolean hasRestaurant = false;
         @Setter

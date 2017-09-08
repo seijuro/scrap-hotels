@@ -49,8 +49,7 @@ public class ExpediaHotelReviewHTMLParser extends HotelReviewParser {
             //  Log
             log.debug("Parsing HTML > body > div#review-content");
 
-            Element reviewElement = reviewsContent.getElementById("reviews");
-            Elements articles = reviewElement.select("article[class*='segment']");
+            Elements articles = reviewsContent.select("div#review-list section#reviews.segmented-list.reviews-list article.segment.review");
 
             for (Element article : articles) {
                 ExpediaHotelReview.Builder reviewBuilder = new ExpediaHotelReview.Builder();

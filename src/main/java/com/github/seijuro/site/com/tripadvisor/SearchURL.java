@@ -16,7 +16,7 @@ import java.util.List;
 
 public class SearchURL implements com.github.seijuro.search.SearchURL {
     @Getter
-    public static final String BaseURL = "https://wwww.tripadvisor.co.kr";
+    public static final String BaseURL = "https://www.tripadvisor.co.kr";
 
     /**
      * Instance Properties

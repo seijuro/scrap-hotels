@@ -18,11 +18,13 @@ import com.github.seijuro.site.com.expedia.ExpediaScraper;
 import com.github.seijuro.site.com.expedia.ExpediaHTMLPageParser;
 import com.github.seijuro.site.com.expedia.ExpediaHotelDetailHTMLParser;
 import com.github.seijuro.site.com.expedia.data.ExpediaHotelDetail;
+import com.github.seijuro.site.com.expedia.data.ExpediaHotelReview;
 import com.github.seijuro.site.com.expedia.query.Date;
 import com.github.seijuro.site.com.expedia.query.Lodging;
 import com.github.seijuro.site.com.hotels.Destination;
 import com.github.seijuro.site.com.hotels.property.query.QueryProperty;
 import com.github.seijuro.site.com.hotels.result.*;
+import com.github.seijuro.site.com.tripadvisor.TripAdvisorScraper;
 import com.github.seijuro.snapshot.*;
 import com.github.seijuro.writer.CSVFileWriter;
 import com.google.gson.Gson;
@@ -41,7 +43,6 @@ import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
 
 import java.io.*;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.sql.Connection;
@@ -906,6 +907,82 @@ public class MainApp {
     }
 
 
+
+    public static void parseExpediaHotelReviewHTMLPage(ExpediaHotelReviewWriter writer, String domain, String hotelId, String html) {
+        ExpediaHotelReviewHTMLParser parser = new ExpediaHotelReviewHTMLParser(hotelId);
+        List<ExpediaHotelReview> restuls = parser.parse(html);
+
+        if (restuls.size() > 0) {
+            if (Objects.nonNull(writer)) { writer.write(restuls.toArray(new ExpediaHotelReview[restuls.size()]), domain, null, null, null, null, null, -1); }
+        }
+    }
+
+
+    public static void parseExpediaHotelReviews() {
+        try {
+            MySQLConnectionString connectionString = getMySQLConnectionString();
+
+            Class.forName("com.mysql.jdbc.Driver");
+            Connection connection = DriverManager.getConnection(connectionString.toConnectionString(), connectionString.getUser(), connectionString.getPassword());
+            connection.setAutoCommit(false);
+
+            ExpediaHotelBaseReader expediaHotelBaseReader = new ExpediaHotelBaseReader(connection);
+            ExpediaSnaphostReader snaphostReader = new ExpediaSnaphostReader(connection);
+            ExpediaHotelReviewWriter writer = new ExpediaHotelReviewWriter(connection);
+
+            List<String> hotelIds = expediaHotelBaseReader.readHotelIds();
+            final String domain = "Expedia.com";
+            int count = 0;
+            int totalCount = hotelIds.size();
+
+            //  release
+            expediaHotelBaseReader = null;
+
+            //  Log
+            log.info("PROCESS ... ({} / {})", count, totalCount);
+
+            for (String hotelId : hotelIds) {
+                //  Log
+                log.info("PROCESS : PARSING (hotel_id : {})", hotelId);
+
+                List<Integer> pageNumbers = snaphostReader.readPageNumbers(domain, hotelId, true);
+                for (int pageNumber : pageNumbers) {
+                    String pageSource = snaphostReader.readHTMLPageSource(domain, hotelId, pageNumber, true);
+
+                    if (Objects.nonNull(pageSource)) {
+
+                        parseExpediaHotelReviewHTMLPage(writer, domain, hotelId, pageSource);
+
+                        //  Log
+                        log.info("PROCESS ... {} / {}", ++count, totalCount);
+
+                        connection.commit();
+                    }
+                    else {
+                        //
+                        log.warn("No snapshot! (hotel_id : {})", hotelId);
+                    }
+                }
+
+
+//                if (Objects.nonNull(pageSource)) {
+//                    parseExpediaHotelDetailHTMLPage(writer, domain, hotelId, pageSource);
+//                }
+
+            }
+
+            //  Log
+            log.info("PROCESS : DONE ({} / {})", ++count, totalCount);
+
+            connection.close();
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+    }
+
+
+
     public static void main(String[] args) {
         System.setProperty("webdriver.chrome.driver", getUserHomePath() + "/Desktop/chromedriver");
 
@@ -939,55 +1016,80 @@ public class MainApp {
 //            }
 
 
-        try {
-            Capabilities capabilities = DesiredCapabilities.chrome();
+        /**
+         * site : Expeida.com
+         * type : parsing
+         * [target]
+         * server : chaos
+         * database : KDI
+         */
+//        {
+//            parseExpediaHotelDetails();
+//            parseExpediaHotelReviews();
+//        }
 
-            try {
-                WebDriver webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
-                JavascriptExecutor js = ((JavascriptExecutor)webDriver);
 
-                webDriver.get("https://www.expedia.co.kr/Jeju-Island-Hotels-Playce-Camp-Jeju.h18519688.Hotel-Information?chkin=2017.10.15&chkout=2017.10.16&rm1=a2&regionId=6049718&hwrqCacheKey=528f911b-0de3-4105-ab20-11faabf78219HWRQ1504799632185&vip=false&c=fca1f5f7-dd52-4569-bb81-b4cc09f8f5c3&&exp_dp=48182&exp_ts=1504799632934&exp_curr=KRW&swpToggleOn=false&exp_pg=HSR");
-                Thread.sleep(3 * DateUtils.MILLIS_PER_SECOND);
+        /**
+         CREATE TABLE `ExpediaUserId` (
+         `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+         `reviewer` varchar(255) NOT NULL,
+         `country` varchar(50) NOT NULL,
+         PRIMARY KEY (`id`),
+         UNIQUE KEY `UIDX_REVIEWER` (`reviewer`,`country`)
+         ) ENGINE=MyISAM DEFAULT CHARSET=utf8
+         */
 
-                WebElement footerElement = webDriver.findElement(By.xpath("//div[@id='site-footer-wrap']"));
-                int scrollEndPosY = footerElement.getLocation().getY();
-                int scrollPx = 10;
 
-                for (int pos = 0; pos < scrollEndPosY; pos += scrollPx) {
-                    ((JavascriptExecutor)webDriver).executeScript("window.scrollBy(0,10)", "");
-                }
 
-                parseExpediaHotelDetailHTMLPage(null, "Expedia.com", "hotel-id-sample", webDriver.getPageSource());
-
-                WebElement hotelOverview = webDriver.findElement(By.xpath("//div[@class='hotel-overview']"));
-                js.executeScript("arguments[0].scrollIntoView(true);", hotelOverview);
-
-                WebElement buttonTapReviews = webDriver.findElement(By.xpath("//button[@id='tab-reviews']"));
-                buttonTapReviews.click();
-
-                Thread.sleep(1L * DateUtils.MILLIS_PER_SECOND);
-
-                scrollEndPosY = footerElement.getLocation().getY();
-                for (int pos = hotelOverview.getLocation().getY(); pos < scrollEndPosY; pos += scrollPx) {
-                    ((JavascriptExecutor)webDriver).executeScript("window.scrollBy(0,10)", "");
-                }
-
-                ExpediaHotelReviewHTMLParser parser = new ExpediaHotelReviewHTMLParser("1");
-
-                parser.parse(webDriver.getPageSource());
-
-                webDriver.quit();
-            }
-            catch (MalformedURLException excp) {
-                excp.printStackTrace();
-            }
-            catch (IOException excp) {
-                excp.printStackTrace();
-            }
-        }
-        catch (InterruptedException excp) {
-            excp.printStackTrace();
-        }
+//        try {
+//            Capabilities capabilities = DesiredCapabilities.chrome();
+//
+//            try {
+//                WebDriver webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
+//                JavascriptExecutor js = ((JavascriptExecutor)webDriver);
+//
+//                webDriver.get("https://www.expedia.co.kr/Jeju-Island-Hotels-Playce-Camp-Jeju.h18519688.Hotel-Information?chkin=2017.10.15&chkout=2017.10.16&rm1=a2&regionId=6049718&hwrqCacheKey=528f911b-0de3-4105-ab20-11faabf78219HWRQ1504799632185&vip=false&c=fca1f5f7-dd52-4569-bb81-b4cc09f8f5c3&&exp_dp=48182&exp_ts=1504799632934&exp_curr=KRW&swpToggleOn=false&exp_pg=HSR");
+//                Thread.sleep(3 * DateUtils.MILLIS_PER_SECOND);
+//
+//                WebElement footerElement = webDriver.findElement(By.xpath("//div[@id='site-footer-wrap']"));
+//                int scrollEndPosY = footerElement.getLocation().getY();
+//                int scrollPx = 10;
+//
+//                for (int pos = 0; pos < scrollEndPosY; pos += scrollPx) {
+//                    ((JavascriptExecutor)webDriver).executeScript("window.scrollBy(0,10)", "");
+//                }
+//
+//                parseExpediaHotelDetailHTMLPage(null, "Expedia.com", "hotel-id-sample", webDriver.getPageSource());
+//
+//                WebElement hotelOverview = webDriver.findElement(By.xpath("//div[@class='hotel-overview']"));
+//                js.executeScript("arguments[0].scrollIntoView(true);", hotelOverview);
+//
+//                WebElement buttonTapReviews = webDriver.findElement(By.xpath("//button[@id='tab-reviews']"));
+//                buttonTapReviews.click();
+//
+//                Thread.sleep(1L * DateUtils.MILLIS_PER_SECOND);
+//
+//                scrollEndPosY = footerElement.getLocation().getY();
+//                for (int pos = hotelOverview.getLocation().getY(); pos < scrollEndPosY; pos += scrollPx) {
+//                    ((JavascriptExecutor)webDriver).executeScript("window.scrollBy(0,10)", "");
+//                }
+//
+//                ExpediaHotelReviewHTMLParser parser = new ExpediaHotelReviewHTMLParser("1");
+//
+//                parser.parse(webDriver.getPageSource());
+//
+//                webDriver.quit();
+//            }
+//            catch (MalformedURLException excp) {
+//                excp.printStackTrace();
+//            }
+//            catch (IOException excp) {
+//                excp.printStackTrace();
+//            }
+//        }
+//        catch (InterruptedException excp) {
+//            excp.printStackTrace();
+//        }
 
 
         /**
@@ -1034,6 +1136,36 @@ public class MainApp {
             excp.printStackTrace();
         }
 
+
+
+        try {
+            List<com.github.seijuro.search.query.Destination> destinations = Arrays.asList(new com.github.seijuro.search.query.Destination[] {
+                    com.github.seijuro.site.com.tripadvisor.query.Destination.BALLY,
+                    com.github.seijuro.site.com.tripadvisor.query.Destination.SEOUL,
+                    com.github.seijuro.site.com.tripadvisor.query.Destination.JEJU,
+                    com.github.seijuro.site.com.tripadvisor.query.Destination.HAWAII
+            });
+
+            List<com.github.seijuro.search.query.Sort> sorts = Arrays.asList(new com.github.seijuro.search.query.Sort[] {
+                    com.github.seijuro.site.com.tripadvisor.query.Sort.RECOMMENDED,
+                    com.github.seijuro.site.com.tripadvisor.query.Sort.POPULARITY
+            });
+
+            Capabilities capabilities = DesiredCapabilities.chrome();
+            WebDriver webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
+            TripAdvisorScraper scraper = new TripAdvisorScraper(webDriver);
+
+            scraper.setDestinations(destinations);
+            scraper.setSorts(sorts);
+
+            scraper.scrap();
+
+            webDriver.quit();
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+
         /**
          * site : Agoda.com
          * source : html files
@@ -1062,6 +1194,76 @@ public class MainApp {
 //                    }
 //                }
 //            }
+
+
+
+        /*
+        DROP VIEW ExpediaHotelReview;
+        CREATE VIEW `ExpediaHotelReview`
+        AS
+        SELECT
+            `vt_review`.`id` AS `id`,
+            `vt_review`.`hotel_id` AS `hotel_id`,
+            `vt_hotel`.`name` AS `hotel_name`,
+            `vt_review`.`post_date` AS `post_date`,
+            `vt_review`.`score` AS `score`,
+            `vt_review`.`title` AS `title`,
+            `vt_review`.`locale` AS `locale`,
+            `vt_review`.`has_response` AS `has_response`,
+            `vt_userid`.`id` AS `reviewer_id`,
+            `vt_review`.`reviewer` AS `reviewer`,
+            `vt_review`.`country` AS `country`,
+            `vt_review`.`lastupdate` AS `lastupdate`
+        FROM
+        `ExpediaHotelReviewBase` AS `vt_review`
+        LEFT JOIN `ExpediaHotelDetail` AS `vt_hotel`
+        ON `vt_review`.`hotel_id` = `vt_hotel`.`id`
+        LEFT JOIN `UserId` `vt_userid`
+        ON `vt_userid`.`domain` = 'Expedia.com' AND `vt_review`.`reviewer` = `vt_userid`.`reviewer` AND `vt_review`.`country` = `vt_userid`.`country`
+         */
+
+        /*
+        DROP VIEW AgodaHotel;
+        CREATE VIEW `AgodaHotel`
+        AS
+        select
+            `vt_base`.`idx` AS `idx`,
+            `vt_base`.`domain` AS `domain`,
+            `vt_base`.`keyword` AS `keyword`,
+            `vt_base`.`check_in` AS `check_in`,
+            `vt_base`.`check_out` AS `check_out`,
+            `vt_base`.`type` AS `type`,
+            `vt_base`.`sort` AS `sort`,
+            `vt_base`.`rank` AS `rank`,
+            `vt_base`.`id` AS `id`,
+            `vt_detail`.`name` AS `name`,
+            `vt_detail`.`address` AS `addess`,
+            `vt_base`.`price` AS `price`,
+            `vt_base`.`linkURL` AS `linkURL`,
+            `vt_base`.`score` AS `score`,
+            `vt_base`.`thumbUp` AS `thumbUp`,
+            `vt_base`.`class` AS `class`,
+            `vt_base`.`currency` AS `currency`,
+            `vt_base`.`review_count` AS `review_count`,
+            `vt_base`.`coupon_discount` AS `coupon_discount`,
+            `vt_base`.`discount_ribbon` AS `discount_ribbon`,
+            `vt_base`.`award` AS `award`,
+            `vt_base`.`freeCancellation` AS `freeCancellation`,
+            `vt_base`.`options` AS `options`,
+            `vt_detail`.`construct_year` AS `built_year`,
+            `vt_detail`.`floor` AS `floors`,
+            `vt_detail`.`rooms` AS `rooms`,
+            `vt_detail`.`beach` AS `beach`,
+            `vt_detail`.`has_restaurant` AS `has_restaurant`,
+            `vt_detail`.`has_pool` AS `has_pool`,
+            `vt_detail`.`has_fitness` AS `has_fitness`,
+            `vt_detail`.`has_casino` AS `has_casino`,
+            `vt_detail`.`tax_included` AS `tax_included`,
+            `vt_detail`.`breakfast_included` AS `breakfast_included`,
+            `vt_detail`.`agoda_reviews` AS `reviews`,
+            `vt_base`.`lastupdate` AS `lastupdate`
+         from (`AgodaHotelBase` `vt_base` left join `AgodaHotelDetail` `vt_detail` on((`vt_base`.`id` = `vt_detail`.`id`)))
+         */
 
         /**
          * hotel detail

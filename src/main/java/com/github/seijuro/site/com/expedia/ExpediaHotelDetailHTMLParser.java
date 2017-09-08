@@ -28,176 +28,95 @@ public class ExpediaHotelDetailHTMLParser implements HTMLPageParser<ExpediaHotel
         Document document = Jsoup.parse(html);
         Element body = document.body();
 
-        Elements licensePlateElements = body.select("div.site-content div.page-header div#license-plate");
+        Elements licensePlateElements = body.select("div.site-content-wrap.hotelInformation div.site-content header.page-header div#license-plate");
         Elements pageHeaderElements = body.select("header.page-header");
         Elements contentWrapElemetns = document.body().select("div.site-content-wrap.hotelInformation");
         Elements priceElements = pageHeaderElements.select("div #lead-price-container div div a.price.link-to-rooms");
         Elements guestRatingElements = body.select("div div section section div article div div div.guest-rating span.rating-number");
         Elements reviewCountElements = body.select("div div section section div article div div a.reviews-link.link-to-reviews span");
-        Elements refProductElements = body.select("div div section #rooms-adn-rates div article table tbody tr.rate-plan.rate-plan-first td.room-info");
-        Elements optionElements = refProductElements.select("td.rate-features");
+        Elements hotelDescriptionElements = body.select("div div.site-content section.page-content div.hotel-overview div.hotel-description");
+        Elements refProductElements = body.select("div.site-content-wrap.hotelInformation div.site-content section.page-content div#rooms-and-rates div article.rooms-and-rates-segment table tbody.room.first-room-featured tr.rate-plan.rate-plan-first");
+
+        //  hotel id
+        hotelBuilder.setId(hotelId);
 
         if (licensePlateElements.size() > 0) {
-            Elements starRatingElements = licensePlateElements.select("star-rating-wrapper strong.star.rating.star-rating span.icon");
-            Elements addressElements = licensePlateElements.select(("div.address div a.map-link"));
+            Elements starRatingElements = licensePlateElements.select("div.star-rating-wrapper strong.star-rating.star.rating span.icon");
+            Elements addressElements = licensePlateElements.select("div.address div a.map-link");
 
             //  hotel name
             hotelBuilder.setName(licensePlateElements.first().getElementById("hotel-name").text());
             //  hotel starRating
             if (starRatingElements.size() > 0) { hotelBuilder.setStarRating(starRatingElements.first().attr("title")); }
             //  hotel address
-            if (addressElements.size() > 0) { hotelBuilder.setAddress(StringUtils.normalizeSpace(addressElements.first().text())); }
+            if (addressElements.size() > 0) {
+                String addressText = addressElements.first().text();
+                if (addressText.startsWith("지도")) { addressText = addressText.substring(2, addressText.length()); }
+                hotelBuilder.setAddress(StringUtils.normalizeSpace(addressText));
+            }
+        }
+
+        //  pool & beach
+        if (hotelDescriptionElements.size() > 0) {
+            Element hotelDescription = hotelDescriptionElements.first();
+
+            //  수영장 #1
+            Elements amenities = hotelDescription.select("div div.important-amenities-container div span.amenity-amenity-element");
+            for (Element amenity : amenities) {
+                String amenityText = amenity.text();
+                //  수영장
+                if (amenityText.contains("수영장") &&
+                        (amenityText.contains("실내") || amenityText.contains("실외") || amenityText.contains("어린이"))) {
+                    hotelBuilder.setHasPool(true);
+                }
+                else if (amenityText.contains("유수풀")) {
+                    hotelBuilder.setHasPool(true);
+                }
+            }
+
+            //
+            Elements descriptionText = hotelDescription.select("p");
+            for (Element desc : descriptionText) {
+                String text = desc.text();
+                //  위치 설명
+                if (text.contains("해변") ||
+                        text.contains("해수욕장") ||
+                        text.contains("해안") ||
+                        text.contains("해변")) {
+                    if (text.contains("근처에")) {
+                        hotelBuilder.setBeach(ExpediaHotelDetail.BeachInfo.NEAR);
+                    }
+                    else {
+                        hotelBuilder.setBeach(ExpediaHotelDetail.BeachInfo.EXIST);
+                    }
+                }
+            }
+        }
+
+        if (refProductElements.size() > 0) {
+            Element refProduct = refProductElements.first();
+
+            Elements freeCancellationElements = refProduct.select("td.rate-features div div.rate-policies a.free-cancellation-tooltip-link span.free-cancellation-short.free-text");
+            Elements freeBreakfastElements = refProduct.select("td.rate-features div div.rate-includes div.room-amenity.free-breakfast span.free-text");
+
+            if (freeCancellationElements.size() > 0) {
+                if (freeCancellationElements.first().text().contains("예약 무료 취소")) { hotelBuilder.setFreeCancellation(true); }
+                if (freeCancellationElements.first().text().contains("환불 불가")) { hotelBuilder.setFreeCancellation(false); }
+            }
+
+            if (freeBreakfastElements.size() > 0) {
+                String breakfast = freeBreakfastElements.first().text();
+                if (breakfast.contains("아침 식사") && breakfast.contains("포함")) { hotelBuilder.setBreakfastInclude(true); }
+            }
         }
 
         if (guestRatingElements.size() > 0) { hotelBuilder.setGuestRating(guestRatingElements.first().text()); }
-        if (reviewCountElements.size() > 0) { hotelBuilder.setReviewCount(Integer.parseInt(reviewCountElements.first().text())); }
-        if (priceElements.size() > 0) { log.debug("price (ref.) : {}", priceElements.first().text()); }
-        if (optionElements.size() > 0) {
-            Element option = optionElements.first();
-        }
+        if (reviewCountElements.size() > 0) { hotelBuilder.setReviewCount(Integer.parseInt(reviewCountElements.first().text().replace(",", ""))); }
+        if (priceElements.size() > 0) { hotelBuilder.setRefProductPrice(priceElements.first().text()); }
 
         if (contentWrapElemetns.size() > 0) {
             Element siteContent = contentWrapElemetns.first();
-
-            Elements hotelOverviewElements = siteContent.select("hotel-overview");
             Element policiesAndAmenties = siteContent.getElementById("policies-and-amenities");
-
-            Element roomsAndRates = siteContent.getElementById("rooms-and-rates");
-            Elements reviewsSummaryElements = siteContent.select("article.reviews-summary");
-
-            //  hotel id
-            hotelBuilder.setId(hotelId);
-
-            //  header
-            if (pageHeaderElements.size() > 0) {
-                Element pageHeader = pageHeaderElements.first();
-
-                Element leadPriceContainer = pageHeader.getElementById("lead-price-container");
-
-                //  name
-                Element hotelName = pageHeader.getElementById("hotel-name");
-                if (Objects.nonNull(hotelName)) {
-                    //  Log
-                    log.debug("PARSING id='hotel-name'");
-
-                    hotelBuilder.setName(StringUtils.normalizeSpace(hotelName.text()));
-                }
-
-                Elements addressElements = pageHeader.select("div.address");
-                if (addressElements.size() > 0) {
-                    //  Log
-                    log.debug("PARSING div.address");
-
-                    //  address
-                    Element addressLink = addressElements.first().child(0);
-                    hotelBuilder.setAddress(StringUtils.normalizeSpace(addressLink.text()));
-                }
-
-                Elements starRatingElements = pageHeader.select("div.star-rating-wrapper");
-                //  Log
-                log.debug("PARSING div.star-rating-wrapper");
-
-                if (starRatingElements.size() > 0) {
-                    Element starRating = starRatingElements.first();
-
-                    Elements starIconElements = starRating.child(0).select("span.icon");
-                    if (starIconElements.size() > 0) {
-                        //  Log
-                        log.debug("PARSING span.icon");
-
-                        //  star rating
-                        hotelBuilder.setStarRating(starIconElements.first().attr("title"));
-                    }
-                }
-            }
-
-            if (reviewsSummaryElements.size() > 0) {
-                Element reviewsSummary = reviewsSummaryElements.first();
-
-                Elements linkElements = reviewsSummary.select("a.reviews-link.link-to-reviews");
-
-                if (linkElements.size() > 0) {
-                    //  Log
-                    log.debug("PARSING a.reviews-link.link-to-reviews");
-
-                    hotelBuilder.setReviewCount(Integer.parseInt(linkElements.first().child(0).text().replace(",", "")));
-                }
-
-                if (guestRatingElements.size() > 0) {
-                    //  Log
-                    log.debug("PARSING span.rating-number");
-
-                    Elements ratingNumberElements = guestRatingElements.first().select("span.rating-number");
-
-                    //  리뷰 평점
-                    if (ratingNumberElements.size() > 0) {
-                        //  Log
-                        log.debug("PARSING span.rating-number");
-
-                        hotelBuilder.setGuestRating(ratingNumberElements.first().text());
-                    }
-                }
-            }
-
-            if (Objects.nonNull(roomsAndRates)) {
-                Elements roomsElements = roomsAndRates.select("tr.rate-plan");
-                //  Log
-                log.debug("PARSING tr.rate-plan");
-
-                for (Element room : roomsElements) {
-                    //  Log
-                    log.debug("PARSING td.rate-features");
-
-                    Elements rateFeatureElements = room.select("td.rate-features");
-
-                    //  Log
-                    log.debug("PARSING div.room-amenity.free-breakfast");
-
-                    Elements freeBreakfastElements = rateFeatureElements.select("div.room-amenity.free-breakfast");
-
-                    if (freeBreakfastElements.size() > 0) {
-                        Element freeBreakfast = freeBreakfastElements.first();
-
-                        if (freeBreakfast.text().contains("무료") &&
-                                freeBreakfast.text().contains("아침 식사")) {
-                            hotelBuilder.setBreakfastInclude(true);
-                        }
-                    }
-                }
-            }
-
-            if (hotelOverviewElements.size() > 0) {
-                //  hotel description
-                Elements hotelDescriptionElements = hotelOverviewElements.first().select("div.hotel-description");
-
-                if (hotelDescriptionElements.size() > 0) {
-                    Element hotelDescription = hotelDescriptionElements.first();
-
-                    Elements children = hotelDescription.children();
-
-                    for (Element child : children) {
-                        if (child.tagName().equals("p")) {
-                            int index = children.indexOf(child);
-                            if (index > 0 &&
-                                    children.get(index - 1).text().contains("위치")) {
-                                String locationInfoText = child.text();
-
-                                //  위치 설명
-                                if (locationInfoText.contains("해변") ||
-                                        locationInfoText.contains("해수욕장") ||
-                                        locationInfoText.contains("해안") ||
-                                        locationInfoText.contains("해변")) {
-                                    if (locationInfoText.contains("근처에")) {
-                                        hotelBuilder.setBeach(ExpediaHotelDetail.BeachInfo.NEAR);
-                                    } else {
-                                        hotelBuilder.setBeach(ExpediaHotelDetail.BeachInfo.EXIST);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
 
             if (Objects.nonNull(policiesAndAmenties)) {
                 //  amenties

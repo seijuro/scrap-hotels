@@ -26,7 +26,7 @@ public class AgodaHotelReviewTable {
      */
 
     @Getter
-    private static final String TableName = "AgodaHotelReview";
+    private static final String TableName = "AgodaHotelReviewDetail";
 
     public enum Column implements DBColumn {
         Id("id"),

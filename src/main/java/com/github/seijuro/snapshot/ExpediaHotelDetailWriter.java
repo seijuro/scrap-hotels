@@ -29,14 +29,16 @@ public class ExpediaHotelDetailWriter extends  AbstractDBWritter<ExpediaHotelDet
                 .append(ExpediaHotelDetailTable.Column.Beach.getColumnName()).append(", ")
                 .append(ExpediaHotelDetailTable.Column.StarRating.getColumnName()).append(", ")
                 .append(ExpediaHotelDetailTable.Column.GuestRating.getColumnName()).append(", ")
+                .append(ExpediaHotelDetailTable.Column.RefProductPrice.getColumnName()).append(", ")
                 .append(ExpediaHotelDetailTable.Column.HasMeetingRoom.getColumnName()).append(", ")
                 .append(ExpediaHotelDetailTable.Column.HasRestaurant.getColumnName()).append(", ")
                 .append(ExpediaHotelDetailTable.Column.HasPool.getColumnName()).append(", ")
                 .append(ExpediaHotelDetailTable.Column.HasFitness.getColumnName()).append(", ")
                 .append(ExpediaHotelDetailTable.Column.HasCasino.getColumnName()).append(", ")
                 .append(ExpediaHotelDetailTable.Column.BreakfastInclude.getColumnName()).append(", ")
+                .append(ExpediaHotelDetailTable.Column.FreeCancellation.getColumnName()).append(", ")
                 .append(ExpediaHotelDetailTable.Column.ReviewCount.getColumnName()).append(") ")
-                .append("VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ");
+                .append("VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ");
         UpsertSQL = sb.toString();
     }
 
@@ -109,14 +111,16 @@ public class ExpediaHotelDetailWriter extends  AbstractDBWritter<ExpediaHotelDet
                     stmt.setString(6, StringUtils.stripToEmpty(hotelDetail.getRooms()));
                     stmt.setString(7, StringUtils.stripToEmpty(hotelDetail.getBeach().getDescription()));
                     stmt.setString(8, StringUtils.stripToEmpty(hotelDetail.getStarRating()));
-                    stmt.setString(9, StringUtils.stripToEmpty(hotelDetail.getBeach().getDescription()));
-                    stmt.setInt(10, hotelDetail.hasMeetingRoom() ? 1 : 0);
-                    stmt.setInt(11, hotelDetail.hasRestaurant() ? 1 : 0);
-                    stmt.setInt(12, hotelDetail.hasPool() ? 1 : 0);
-                    stmt.setInt(13, hotelDetail.hasFitness() ? 1 : 0);
-                    stmt.setInt(14, hotelDetail.hasCasino() ? 1 : 0);
-                    stmt.setInt(15, hotelDetail.isBreakfastInclude() ? 1 : 0);
-                    stmt.setInt(16, hotelDetail.getReviewCount());
+                    stmt.setString(9, StringUtils.stripToEmpty(hotelDetail.getGuestRating()));
+                    stmt.setString(10, StringUtils.stripToEmpty(hotelDetail.getRefProductPrice()));
+                    stmt.setInt(11, hotelDetail.hasMeetingRoom() ? 1 : 0);
+                    stmt.setInt(12, hotelDetail.hasRestaurant() ? 1 : 0);
+                    stmt.setInt(13, hotelDetail.hasPool() ? 1 : 0);
+                    stmt.setInt(14, hotelDetail.hasFitness() ? 1 : 0);
+                    stmt.setInt(15, hotelDetail.hasCasino() ? 1 : 0);
+                    stmt.setInt(16, hotelDetail.isBreakfastInclude() ? 1 : 0);
+                    stmt.setInt(17, hotelDetail.isFreeCancellation() ? 1 : 0);
+                    stmt.setInt(18, hotelDetail.getReviewCount());
 
                     stmt.executeUpdate();
                 }
