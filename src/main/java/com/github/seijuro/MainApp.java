@@ -24,7 +24,8 @@ import com.github.seijuro.site.com.expedia.query.Lodging;
 import com.github.seijuro.site.com.hotels.Destination;
 import com.github.seijuro.site.com.hotels.property.query.QueryProperty;
 import com.github.seijuro.site.com.hotels.result.*;
-import com.github.seijuro.site.com.tripadvisor.TripAdvisorScraper;
+import com.github.seijuro.site.com.tripadvisor.BasicHTMLFileWriter;
+import com.github.seijuro.site.com.tripadvisor.TripAdvisorReviewScraper;
 import com.github.seijuro.snapshot.*;
 import com.github.seijuro.writer.CSVFileWriter;
 import com.google.gson.Gson;
@@ -52,7 +53,7 @@ import java.util.*;
 @Log4j2
 public class MainApp {
     @Getter
-    public static final String UserHomePath = "/Users/myungjoonlee";
+    public static final String UserHomePath = "/Users/sogiro";
     static final String ROOT_DIR_BOOKING = UserHomePath + "/Developer/Booking.com";
     static final String ROOT_DIR_EXPEDIA = UserHomePath + "/Developer/Expedia.com";
     static final String ROOT_DIR_AGODA = UserHomePath + "/Desktop/Agoda.com";
@@ -387,7 +388,7 @@ public class MainApp {
 
     public static void scrapExpediaCom(WebDriver driver) {
         try {
-            DefaultHTMLFileWriter writer = new DefaultHTMLFileWriter(ROOT_DIR_EXPEDIA);
+            com.github.seijuro.DefaultHTMLFileWriter writer = new com.github.seijuro.DefaultHTMLFileWriter(ROOT_DIR_EXPEDIA);
 
             List<com.github.seijuro.site.com.expedia.query.Destination> destinations = Arrays.asList(
                     com.github.seijuro.site.com.expedia.query.Destination.SEOUL,
@@ -423,7 +424,7 @@ public class MainApp {
 
     public static void scrapAgodaCom(WebDriver driver) {
         try {
-            DefaultHTMLFileWriter writer = new DefaultHTMLFileWriter(ROOT_DIR_AGODA);
+            com.github.seijuro.DefaultHTMLFileWriter writer = new com.github.seijuro.DefaultHTMLFileWriter(ROOT_DIR_AGODA);
 
             List<com.github.seijuro.search.query.Destination> destinations = Arrays.asList(com.github.seijuro.site.com.agoda.query.Destination.values());
             List<com.github.seijuro.search.query.Sort> sorts = Arrays.asList(com.github.seijuro.site.com.agoda.query.Sort.values());
@@ -981,10 +982,71 @@ public class MainApp {
         }
     }
 
+    public static void extractTripAdvisorHotelReviewURL(FileWriter fwriter, File file) {
+        try {
+            String line;
+            BufferedReader bufferedReader = new BufferedReader(new FileReader(file));
+            StringBuilder contentBuilder = new StringBuilder();
 
+            while ((line = bufferedReader.readLine()) != null) {
+                contentBuilder.append(line);
+            }
+
+            Document document = Jsoup.parse(contentBuilder.toString());
+            Elements hotelElements = document.body().select("div.listing.easyClear.p13n_imperfect");
+
+            for (Element hotelElement : hotelElements) {
+                String hotelId = hotelElement.attr("data-locationid");
+
+                //  Log
+                log.debug("hotelId : {}", hotelId);
+
+                Elements hotelLinkElements = hotelElement.select("div.illisting.ilCR div.hotel_content div.listing_title a");
+
+                if (hotelLinkElements.size() > 0) {
+                    String linkURL = String.format("http://www.tripadvisor.co.kr%s", hotelLinkElements.first().attr("href"));
+
+                    //  Log
+                    log.debug("linkURL : {}", linkURL);
+
+                    fwriter.write(String.format("%s : %s%s", hotelId, linkURL, System.lineSeparator()));
+                }
+            }
+
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void extractTripAdvisorHotelReviewURL(FileWriter fwriter, File... files) {
+        for (File file : files) {
+            if (file.isDirectory()) {
+                extractTripAdvisorHotelReviewURL(fwriter, file.listFiles());
+            }
+            else {
+                extractTripAdvisorHotelReviewURL(fwriter, file);
+            }
+        }
+    }
+
+    public static void extractTripAdvisorHotelReviewURL() {
+        try {
+            String srcRootPath = getUserHomePath() + "/Desktop/TripAdvisor.com";
+            String outFilepath = getUserHomePath() + "/Desktop/TripAdvisorLinkURL.txt";
+            FileWriter fileWriter = new FileWriter(outFilepath, true);
+
+            extractTripAdvisorHotelReviewURL(fileWriter, new File(srcRootPath).listFiles());
+
+            fileWriter.close();
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+    }
 
     public static void main(String[] args) {
-        System.setProperty("webdriver.chrome.driver", getUserHomePath() + "/Desktop/chromedriver");
+//        System.setProperty("webdriver.chrome.driver", getUserHomePath() + "/Desktop/chromedriver");
 
 //        scrapHotelsCom();
 //        scrapBookingCom();
@@ -1138,33 +1200,110 @@ public class MainApp {
 
 
 
+        //  TripAdvisor.com
+//        try {
+//            List<com.github.seijuro.search.query.Destination> destinations = Arrays.asList(new com.github.seijuro.search.query.Destination[] {
+//                    com.github.seijuro.site.com.tripadvisor.query.Destination.BALLY,
+//                    com.github.seijuro.site.com.tripadvisor.query.Destination.SEOUL,
+//                    com.github.seijuro.site.com.tripadvisor.query.Destination.JEJU,
+//                    com.github.seijuro.site.com.tripadvisor.query.Destination.HAWAII
+//            });
+//
+//            List<com.github.seijuro.search.query.Sort> sorts = Arrays.asList(new com.github.seijuro.search.query.Sort[] {
+//                    com.github.seijuro.site.com.tripadvisor.query.Sort.RECOMMENDED,
+//                    com.github.seijuro.site.com.tripadvisor.query.Sort.POPULARITY
+//            });
+//
+//            for (com.github.seijuro.search.query.Destination destination : destinations) {
+//                new Thread(() -> {
+//                    try {
+//                        Capabilities capabilities = DesiredCapabilities.chrome();
+//                        WebDriver webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
+//                        TripAdvisorSearchResultScraper scraper = new TripAdvisorSearchResultScraper(webDriver);
+//                        TripAdvisorSearchResultHTMLFileWriter writer = new TripAdvisorSearchResultHTMLFileWriter(getUserHomePath() + "/Desktop/TripAdvisor.com");
+//
+//                        scraper.setDestination(destination);
+//                        scraper.setSorts(sorts);
+//                        scraper.setHtmlWriter(writer);
+//
+//                        scraper.scrap();
+//
+//                        webDriver.quit();
+//                    }
+//                    catch (Exception excp) {
+//                        excp.printStackTrace();;
+//                    }
+//                }).start();
+//            }
+//        }
+//        catch (Exception excp) {
+//            excp.printStackTrace();
+//        }
+
+
+        /**
+         * extract hotelId & linkURL
+         *
+         * site : TripAdvisor.com
+         */
+//        extractTripAdvisorHotelReviewURL();
+
+
+
         try {
-            List<com.github.seijuro.search.query.Destination> destinations = Arrays.asList(new com.github.seijuro.search.query.Destination[] {
-                    com.github.seijuro.site.com.tripadvisor.query.Destination.BALLY,
-                    com.github.seijuro.site.com.tripadvisor.query.Destination.SEOUL,
-                    com.github.seijuro.site.com.tripadvisor.query.Destination.JEJU,
-                    com.github.seijuro.site.com.tripadvisor.query.Destination.HAWAII
-            });
+            int maxThread = 3;
+            BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/TripAdvisorLinkURL_U.txt"));
+            final List<String> hotelInfos = new ArrayList<>();
+            String line;
 
-            List<com.github.seijuro.search.query.Sort> sorts = Arrays.asList(new com.github.seijuro.search.query.Sort[] {
-                    com.github.seijuro.site.com.tripadvisor.query.Sort.RECOMMENDED,
-                    com.github.seijuro.site.com.tripadvisor.query.Sort.POPULARITY
-            });
+            while ((line = reader.readLine()) != null) {
+                hotelInfos.add(line);
+            }
 
-            Capabilities capabilities = DesiredCapabilities.chrome();
-            WebDriver webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
-            TripAdvisorScraper scraper = new TripAdvisorScraper(webDriver);
+            reader.close();
 
-            scraper.setDestinations(destinations);
-            scraper.setSorts(sorts);
+            for (int index = 0; index < maxThread; ++index) {
+                new Thread(() -> {
+                    try {
+                        Capabilities capabilities = DesiredCapabilities.chrome();
+                        WebDriver webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
 
-            scraper.scrap();
+                        TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
+                        BasicHTMLFileWriter writer = new BasicHTMLFileWriter(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
 
-            webDriver.quit();
+                        while (true) {
+                            String hotelInfo;
+                            synchronized (hotelInfos) {
+                                if (hotelInfos.size() > 0) {
+                                    hotelInfo = hotelInfos.remove(0);
+                                }
+                                else {
+                                    break;
+                                }
+                            }
+
+                            String[] tokens = hotelInfo.split(":", 2);
+                            String hotelId = StringUtils.strip(tokens[0]);
+                            String linkURL = StringUtils.strip(tokens[1]);
+
+                            if (writer.exists(new String[] {hotelId})) { continue; }
+
+                            scraper.setHotelId(hotelId);
+                            scraper.setWriter(writer);
+                            scraper.scrap(linkURL, 3L * DateUtils.MILLIS_PER_SECOND);
+                        }
+                    } catch (Exception excp) {
+                        excp.printStackTrace();
+                    }
+                }).start();
+            }
         }
         catch (Exception excp) {
             excp.printStackTrace();
         }
+
+
+
 
         /**
          * site : Agoda.com

@@ -1,6 +1,7 @@
 package com.github.seijuro.scrap;
 
 import com.github.seijuro.search.SearchURL;
+import com.github.seijuro.site.common.writer.ScrapWriter;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
@@ -10,8 +11,6 @@ import java.util.Objects;
 
 @Log4j2
 public abstract class AbstractScraper implements Scraper {
-    public void createNewTab() {
-    }
     /**
      * Instance Properties
      */
@@ -47,7 +46,7 @@ public abstract class AbstractScraper implements Scraper {
             //  Log
             log.debug("requestURL : {}", requestURL);
 
-            driver.navigate().to(requestURL);
+            driver.get(requestURL);
         }
 
         Thread.sleep(sleepMillis);

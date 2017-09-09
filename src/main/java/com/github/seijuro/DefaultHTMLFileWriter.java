@@ -8,22 +8,18 @@ import com.github.seijuro.search.query.Sort;
 import java.io.File;
 
 public class DefaultHTMLFileWriter extends HTMLFileWriter {
-    private final String baseDir;
-
     /**
      * Construct
      *
      * @param baseDir
      */
     public DefaultHTMLFileWriter(String baseDir) {
-        super();
-
-        this.baseDir = baseDir;
+        super(baseDir);
     }
 
     @Override
     public String getTargetDir(SearchURL searchURL) {
-        StringBuffer pathBuilder = new StringBuffer(baseDir);
+        StringBuffer pathBuilder = new StringBuffer(getRootDir());
 
         Destination destination = searchURL.getDestination();
         Sort sort = searchURL.getSort();
