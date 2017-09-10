@@ -230,10 +230,10 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                         //  로딩 이후 다시 '리뷰 컨테이너'를 검색
                         reviewContainerElements = reviewsElement.findElements(By.cssSelector("div.ppr_rup.ppr_priv_location_reviews_list div.review-container"));
 
-                        //  scroll to head
+                        //  '리뷰' 최상단으로 스크롤 백
                         log.debug("Scroll to 'Reviews Container' view ...");
                         js.executeScript("arguments[0].scrollIntoView(true);", reviewsElement);
-                        Thread.sleep(WAIT_MILLIS_1_SECOND);
+                        Thread.sleep(200);
 
                         scrollY = 0;
                         for (WebElement reviewContainer : reviewContainerElements) {
@@ -262,9 +262,10 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                                     js.executeScript("window.scrollBy(0,-10)", "");
                                 }
 
+                                //  사용자 정보 툴립 팝업 로딩을 위한 마우스 액션
                                 Actions mouseOverAction = new Actions(webDriver);
                                 mouseOverAction.moveToElement(memberOverlayLink).build().perform();
-                                //  Wait for opening tooltip popup
+                                //  사용자 정보 툴립 팝업 로딩
                                 Thread.sleep(WAIT_MILLIS_2_5_SECOND);
 
                                 //  scrap tool-tip ...
@@ -282,10 +283,10 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                                     }
                                 }
 
+                                //  사용자 정보 툴팁 닫기 위한 마우스 액션
                                 Actions mouseOffAction = new Actions(webDriver);
                                 mouseOffAction.moveByOffset(memberOverlayLink.getLocation().getX() * -1, 0).build().perform();
-                                //  Wait for closing tooltip popup
-                                Thread.sleep(WAIT_MILLIS_1_SECOND);
+                                Thread.sleep(200);
                             }
 
                             scrollY = reviewContainer.getSize().getHeight();
