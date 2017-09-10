@@ -169,12 +169,12 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                         (Objects.nonNull(writer) && !writer.exists(currentDirHierarchy))) {
                     try {
                         int scrollY = 0;
-                        WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS"));
-                        List<WebElement> reviewContainerElements = reviewsElement.findElements(By.cssSelector("div.ppr_rup.ppr_priv_location_reviews_list div.review-container"));
-                        log.debug("reviews count : {}", reviewContainerElements.size());
+                        List<String> reviewSelectorIds = getReviewSelectorIds();
+
+                        log.debug("reviews count : {}", reviewSelectorIds.size());
 
                         //  리뷰가 없는 경우
-                        if (reviewContainerElements.size() == 0) {
+                        if (reviewSelectorIds.size() == 0) {
                             //  페이지 저장 후 종료
                             saveHTMLPageSource(currentDirHierarchy, String.format("%s.html", pageName));
                             break;
@@ -187,27 +187,20 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                         }
 
                         goToReview();
-                        checkSeeMore();
+                        setSeeMoreIfExist();
 
                         //  페이지 스크롤링, 클릭 등등 여러 가지 케이스에 대해, WebElement가 수정 & 리로딩이 발생
                         //  로딩 이후 다시 '리뷰 컨테이너'를 검색
-                        reviewContainerElements = reviewsElement.findElements(By.cssSelector("div.ppr_rup.ppr_priv_location_reviews_list div.review-container"));
+                        for (String reviewSelecrId : reviewSelectorIds) {
+                            WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS"));
+                            WebElement reviewSelector = reviewsElement.findElement(By.id(reviewSelecrId));
 
-                        scrollY = 0;
-                        for (WebElement reviewContainer : reviewContainerElements) {
-                            if (scrollY > 0) {
-                                log.debug("Scroll to 'current review'  view ...");
-                                for (int i = 0; i < scrollY / 10; i++) {
-                                    js.executeScript("window.scrollBy(0,10)", "");
-                                }
-                            }
-
-                            String reviewId = reviewContainer.getAttribute("data-reviewid");
+                            String reviewId = reviewSelector.getAttribute("data-reviewid");
 
                             //  Log
                             log.debug("reviewId : {}", reviewId);
 
-                            List<WebElement> uiColumnGroupElements = reviewContainer.findElements(By.cssSelector("div.review.hsx_review.ui_columns"));
+                            List<WebElement> uiColumnGroupElements = reviewSelector.findElements(By.cssSelector("div.review.hsx_review.ui_columns"));
                             if (uiColumnGroupElements.size() > 0) {
                                 List<WebElement> uiColumnElements = uiColumnGroupElements.get(0).findElements(By.cssSelector("div.ui_column"));
 
@@ -254,7 +247,11 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                                 }
                             }
 
-                            scrollY = reviewContainer.getSize().getHeight();
+                            scrollY = reviewSelector.getSize().getHeight();
+                            log.debug("Scroll to 'current review'  view ...");
+                            for (int i = 0; i < scrollY / 20; i++) {
+                                js.executeScript("window.scrollBy(0,20)", "");
+                            }
                         }
                     }
                     catch (Exception excp) {
@@ -266,11 +263,6 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                     //  scrap HTML page source ...
                     log.debug("Scrap 'HTML' page source ...");
                     saveHTMLPageSource(currentDirHierarchy, String.format("%s.html", pageName));
-                }
-
-                WebElement similarHotels = webDriver.findElement(By.cssSelector("div.ppr_rup.ppr_priv_hr_btf_similar_hotels"));
-                while (!similarHotels.isDisplayed()) {
-                    js.executeScript("window.scrollBy(0, 10)", "");
                 }
 
                 hasNextPage = false;
@@ -299,6 +291,19 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         } while (didReload);
     }
 
+    public List<String> getReviewSelectorIds() {
+        WebDriver webDriver = getDriver();
+        List<String> reviewSelectorIds = new ArrayList<>();
+
+        WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS"));
+        List<WebElement> reviewSelectorElements = reviewsElement.findElements(By.cssSelector("div.ppr_rup.ppr_priv_location_reviews_list div.review-container div.prw_rup.prw_reviews_basic_review_hsx div.reviewSelector"));
+
+        for (WebElement reviewSelector : reviewSelectorElements) {
+            reviewSelectorIds.add(reviewSelector.getAttribute("id"));
+        }
+
+        return reviewSelectorIds;
+    }
     public boolean setTranslationIfExists() throws InterruptedException {
         try {
             WebDriver webDriver = getDriver();
@@ -339,6 +344,8 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                         }
                     }
                 }
+
+                scrollY = reviewContainer.getSize().getHeight();
             }
         }
         catch (InterruptedException excp) {
@@ -351,7 +358,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         return false;
     }
 
-    public boolean checkSeeMore() {
+    public boolean setSeeMoreIfExist() {
         WebDriver webDriver = getDriver();
         JavascriptExecutor js = (JavascriptExecutor) webDriver;
 
@@ -398,15 +405,21 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         return false;
     }
 
+    public WebElement getTabMenu() {
+        WebDriver webDriver = getDriver();
+        return webDriver.findElement(By.cssSelector("ul.tabs_pers_content.easyClear.tb_stickyElt.ui_container"));
+    }
+
     public boolean loadAllPageContent() throws InterruptedException {
         WebDriver webDriver = getDriver();
+        JavascriptExecutor js = (JavascriptExecutor)webDriver;
 
         try {
             List<String> ids = new ArrayList<>();
 
             //  find all IDs of menu item.
             {
-                WebElement TabMenu = webDriver.findElement(By.cssSelector("ul.tabs_pers_content.easyClear.tb_stickyElt.ui_container"));
+                WebElement TabMenu = getTabMenu();
                 List<WebElement> menuItemElements = TabMenu.findElements(By.className("tabs_pers_item"));
 
                 for (WebElement menuItem : menuItemElements) {
@@ -416,8 +429,13 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
             //  click all menus
             for (String id : ids) {
-                WebElement TabMenu = webDriver.findElement(By.cssSelector("ul.tabs_pers_content.easyClear.tb_stickyElt.ui_container"));
+                WebElement TabMenu = getTabMenu();
                 WebElement menuItem = TabMenu.findElement(By.id(id));
+
+                if (menuItem.getAttribute("class").contains("hidden")) {
+                    continue;
+                }
+
                 menuItem.click();
 
                 Thread.sleep(WAIT_MILLIS_1_5_SECOND);
@@ -441,7 +459,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         JavascriptExecutor js = (JavascriptExecutor)webDriver;
 
         try {
-            WebElement TabMenu = webDriver.findElement(By.cssSelector("ul.tabs_pers_content.easyClear.tb_stickyElt.ui_container"));
+            WebElement TabMenu = getTabMenu();
 
             WebElement tabButton = TabMenu.findElement(By.id("TABS_REVIEWS"));
             tabButton.click();
