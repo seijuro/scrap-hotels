@@ -191,9 +191,29 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
                         //  페이지 스크롤링, 클릭 등등 여러 가지 케이스에 대해, WebElement가 수정 & 리로딩이 발생
                         //  로딩 이후 다시 '리뷰 컨테이너'를 검색
+                        WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS"));
+                        WebElement reviewSelector;
+
                         for (String reviewSelecrId : reviewSelectorIds) {
-                            WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS"));
-                            WebElement reviewSelector = reviewsElement.findElement(By.id(reviewSelecrId));
+                            reviewSelector = null;
+
+                            for (int index = 0; index < MAX_TRY; ++index) {
+                                try {
+                                    reviewSelector = reviewsElement.findElement(By.id(reviewSelecrId));
+                                    break;
+                                }
+                                catch (Exception excp) {
+                                    //  Log
+                                    log.error("Failed to find 'review selector' ({} / {}) ...", index + 1, MAX_TRY);
+                                }
+                            }
+
+                            if (Objects.isNull(reviewSelector)) {
+                                //  Log
+                                log.warn("skip scraping review (review-selector-id : {})", reviewSelecrId);
+                                
+                                continue;
+                            }
 
                             String reviewId = reviewSelector.getAttribute("data-reviewid");
 
