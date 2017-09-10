@@ -22,6 +22,12 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
     @Getter
     public static final long DefaultSleepMillis = 5L * DateUtils.MILLIS_PER_SECOND;
 
+    public static final long WAIT_MILLIS_1_SECOND = 1000L;
+    public static final long WAIT_MILLIS_1_5_SECOND = 1500L;
+    public static final long WAIT_MILLIS_2_SECOND = 2000L;
+    public static final long WAIT_MILLIS_2_5_SECOND = 2500L;
+    public static final long WAIT_MILLIS_3_SECOND = 3000L;
+
     @Setter @Getter
     private long sleepMillis = getDefaultSleepMillis();
     @Getter
@@ -70,7 +76,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                 log.debug("Click 'Next month' button ...");
 
                 nextMonthElement.click();
-                Thread.sleep(1L * DateUtils.MILLIS_PER_SECOND);
+                Thread.sleep(WAIT_MILLIS_1_SECOND);
             }
 
             //  Log
@@ -78,7 +84,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
             WebElement startDateElement = checkInDatePicker.findElement(By.cssSelector("span.dsdc-cell.dsdc-day[data-date='2017-10-15']"));
             startDateElement.click();
-            Thread.sleep(1L * DateUtils.MILLIS_PER_SECOND);
+            Thread.sleep(WAIT_MILLIS_1_SECOND);
         }
 
         //  check-out
@@ -90,7 +96,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
             WebElement endDateElement = checkOutDatePicker.findElement(By.cssSelector("span.dsdc-cell.dsdc-day[data-date='2017-10-16']"));
             endDateElement.click();
-            Thread.sleep(1L * DateUtils.MILLIS_PER_SECOND);
+            Thread.sleep(WAIT_MILLIS_1_SECOND);
         }
 
         didSetCheckInOut = true;
@@ -124,7 +130,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
                 //  Log
                 log.debug("Failed to choose check-in/out date ... wait for a second & retry");
-                Thread.sleep(5L * DateUtils.MILLIS_PER_SECOND);
+                Thread.sleep(sleepMillis);
             }
         }
 
@@ -153,13 +159,13 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                     allLanguageElement.click();
 
                     // Wait for reloading all reviews ...
-                    log.debug("Chick 'All language', and wait for reloading reviews ... {} ms", sleepMillis);
-                    Thread.sleep(sleepMillis);
+                    log.debug("Chick 'All language', and wait for reloading reviews ... {} ms", WAIT_MILLIS_1_5_SECOND);
+                    Thread.sleep(WAIT_MILLIS_1_5_SECOND);
                 }
             }
 
             do {
-                String pageName = String.format("%03d", currentPage);
+                String pageName = String.format("%04d", currentPage);
                 String[] currentDirHierarchy = new String[]{hotelId, pageName};
 
                 if (Objects.isNull(writer) ||
@@ -195,7 +201,8 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                                     if (Objects.isNull(inputElement.getAttribute("checked"))) {
                                         inputElement.click();
 
-                                        Thread.sleep(10L * DateUtils.MILLIS_PER_SECOND);
+                                        //  자동으로 전체 페이지 리로딩 됨
+                                        Thread.sleep(WAIT_MILLIS_2_5_SECOND);
                                         needReload = true;
                                         break;
                                     }
@@ -211,11 +218,11 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
                                 log.debug("Click 'More' button & wait for loading : {} ms", sleepMillis);
                                 moreButtonElements.get(0).click();
-                                Thread.sleep(sleepMillis);
+                                //  Wait for realoding reviews
+                                Thread.sleep(WAIT_MILLIS_2_SECOND);
                             }
 
                             scrollY = reviewContainer.getSize().getHeight();
-                            Thread.sleep(500);
                         }
 
                         if (needReload) { break; }
@@ -226,7 +233,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                         //  scroll to head
                         log.debug("Scroll to 'Reviews Container' view ...");
                         js.executeScript("arguments[0].scrollIntoView(true);", reviewsElement);
-                        Thread.sleep(sleepMillis);
+                        Thread.sleep(WAIT_MILLIS_1_SECOND);
 
                         scrollY = 0;
                         for (WebElement reviewContainer : reviewContainerElements) {
@@ -257,7 +264,8 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
                                 Actions mouseOverAction = new Actions(webDriver);
                                 mouseOverAction.moveToElement(memberOverlayLink).build().perform();
-                                Thread.sleep(sleepMillis);
+                                //  Wait for opening tooltip popup
+                                Thread.sleep(WAIT_MILLIS_2_5_SECOND);
 
                                 //  scrap tool-tip ...
                                 log.debug("Scrap 'tool-tip' ...");
@@ -276,7 +284,8 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
                                 Actions mouseOffAction = new Actions(webDriver);
                                 mouseOffAction.moveByOffset(memberOverlayLink.getLocation().getX() * -1, 0).build().perform();
-                                Thread.sleep(sleepMillis);
+                                //  Wait for closing tooltip popup
+                                Thread.sleep(WAIT_MILLIS_1_SECOND);
                             }
 
                             scrollY = reviewContainer.getSize().getHeight();
@@ -315,7 +324,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                             nextButtonElement.click();
 
                             log.debug("Waiting for reloading & scrolling to the top of reviews ...", currentPage, currentPage + 1);
-                            Thread.sleep(sleepMillis);
+                            Thread.sleep(WAIT_MILLIS_2_SECOND);
                         }
                     }
                 }

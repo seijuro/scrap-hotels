@@ -1290,7 +1290,7 @@ public class MainApp {
 
                             scraper.setHotelId(hotelId);
                             scraper.setWriter(writer);
-                            scraper.scrap(linkURL, 3L * DateUtils.MILLIS_PER_SECOND);
+                            scraper.scrap(linkURL, 2L * DateUtils.MILLIS_PER_SECOND);
                         }
                     } catch (Exception excp) {
                         excp.printStackTrace();
