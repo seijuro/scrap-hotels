@@ -1045,6 +1045,41 @@ public class MainApp {
         }
     }
 
+
+    public Map<String, Set<Integer>> readErrors(String filepath) {
+        Map<String, Set<Integer>> results = new HashMap<>();
+
+        try {
+            String line;
+            BufferedReader br = new BufferedReader(new FileReader(filepath));
+
+            while (Objects.nonNull(line = br.readLine())) {
+                String[] tokens = line.split(":", 2);
+
+                try {
+                    String hotelId = tokens[0];
+                    Integer pageNuber = Integer.parseInt(tokens[1]);
+
+                    if (!results.containsKey(hotelId)) {
+                        results.put(hotelId, new HashSet<>());
+                    }
+
+                    results.get(hotelId).add(pageNuber);
+                }
+                catch (NumberFormatException excp) {
+                    log.error("error msg : {}, (original text : \"{}\")", excp.getMessage(), line);
+                }
+            }
+
+            br.close();
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+
+        return results;
+    }
+
     public static void main(String[] args) {
 //        System.setProperty("webdriver.chrome.driver", getUserHomePath() + "/Desktop/chromedriver");
 
@@ -1241,6 +1276,9 @@ public class MainApp {
 //        }
 
 
+
+
+
         /**
          * extract hotelId & linkURL
          *
@@ -1296,6 +1334,8 @@ public class MainApp {
                         excp.printStackTrace();
                     }
                 }).start();
+
+                Thread.sleep(100);
             }
         }
         catch (Exception excp) {

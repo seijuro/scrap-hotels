@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.util.Objects;
 
 public class BasicHTMLFileWriter extends HTMLFileWriter {
+    public static final String DefaultErrorFilename = "error.txt";
+
     /**
      * Instance Properties
      */
@@ -66,6 +68,25 @@ public class BasicHTMLFileWriter extends HTMLFileWriter {
 
         try {
             super.write(targetPath, pageSource);
+
+            return true;
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+
+        return false;
+    }
+
+    public boolean error(String errorMessage) {
+        StringBuilder pathBuilder = new StringBuilder(root);
+
+        pathBuilder.append(File.separator).append(DefaultErrorFilename);
+        String targetPath = pathBuilder.toString();
+
+
+        try {
+            super.write(targetPath, errorMessage + System.lineSeparator(), true);
 
             return true;
         }

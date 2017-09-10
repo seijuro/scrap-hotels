@@ -8,6 +8,10 @@ import java.nio.file.attribute.BasicFileAttributes;
 
 public class HTMLFileWriter {
     public void write(String targetPath, String pageSource) throws IOException {
+        this.write(targetPath, pageSource, false);
+    }
+
+    synchronized public void write(String targetPath, String pageSource, boolean appendFlag) throws IOException {
         File target = new File(targetPath);
         File parent = target.getParentFile();
 
@@ -17,7 +21,7 @@ public class HTMLFileWriter {
 
         if (parent.isDirectory() &&
                 parent.canWrite()) {
-            FileWriter fwriter = new FileWriter(target, false);
+            FileWriter fwriter = new FileWriter(target, appendFlag);
 
             fwriter.write(pageSource);
 
@@ -32,7 +36,7 @@ public class HTMLFileWriter {
         return target.exists();
     }
 
-    public void remove(String targetPath) throws IOException {
+    synchronized public void remove(String targetPath) throws IOException {
         Path directory = Paths.get(targetPath);
         Files.walkFileTree(directory, new SimpleFileVisitor<Path>() {
             @Override
