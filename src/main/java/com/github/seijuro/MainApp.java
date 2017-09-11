@@ -1227,7 +1227,8 @@ public class MainApp {
 //                    }
 //                }).start();
 //            }
-        } catch (Exception excp) {
+        }
+        catch (Exception excp) {
             excp.printStackTrace();
         }
 
@@ -1287,7 +1288,7 @@ public class MainApp {
 
 
         try {
-            int maxThread = 3;
+            int maxThread = 4;
             BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/TripAdvisorLinkURL_U.txt"));
             final List<String> hotelInfos = new ArrayList<>();
             String line;

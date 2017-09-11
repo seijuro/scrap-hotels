@@ -28,6 +28,11 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
     public static final int MAX_TRY = 3;
 
+    public enum ScrapType {
+        SCRAP_THE_SEPCIFIED_PAGE,
+        SCRAP_FROM_PAGE
+    }
+
     @Setter @Getter
     private long sleepMillis = getDefaultSleepMillis();
     @Getter
@@ -35,10 +40,6 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
     @Setter
     private String hotelId = null;
     private boolean didSetCheckInOut = false;
-    @Setter
-    private boolean traverse = true;
-    @Setter
-    private int jumpToPageIndex = 1;
     @Setter
     private BasicHTMLFileWriter writer = null;
 
@@ -60,7 +61,11 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         return null;
     }
 
-
+    /**
+     * Setting check-in/out date on the review pages.
+     *
+     * @throws InterruptedException
+     */
     public void setCheckInOut() throws InterruptedException {
         //  wait additional ms ...
         WebDriver webDriver = getDriver();
@@ -106,6 +111,12 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         didSetCheckInOut = true;
     }
 
+    /**
+     * Save the HTML page source of the site.
+     *
+     * @param currentDirHierarchy
+     * @param filename
+     */
     public void saveHTMLPageSource(String[] currentDirHierarchy, String filename) {
         WebDriver webDriver = getDriver();
         if (Objects.nonNull(writer)) {
@@ -114,6 +125,14 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         }
     }
 
+    /**
+     * Basic method to scrap review page(s).
+     * Just scrap all pages from the first page.
+     *
+     * @param searchURL
+     * @param sleepMillis
+     * @throws Exception
+     */
     @Override
     public void scrap(String searchURL, long sleepMillis) throws Exception {
         super.scrap(searchURL, getDefaultSleepMillis());
@@ -234,7 +253,17 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         } while (didReload);
     }
 
-    public void scrapPage(String searchURL, int pageNumber, long sleepMillis) throws Exception {
+    /**
+     * scrap Review Page whose page number is specified in param.
+     * To use this method, you must calculate the offset from the page number, and offset size per page.
+     * Finally, the offset should be descripted in searchURL.
+     *
+     * @param searchURL
+     * @param pageNumber
+     * @param sleepMillis
+     * @throws Exception
+     */
+    private void scrapSpecifiedPage(String searchURL, int pageNumber, long sleepMillis) throws Exception {
         super.scrap(searchURL, getDefaultSleepMillis());
 
         WebDriver webDriver = getDriver();
@@ -325,7 +354,9 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         saveHTMLPageSource(currentDirHierarchy, String.format("%s.html", pageName));
     }
 
-    public boolean scrap(String searchURL, int pageNumber, long sleepMillis) throws Exception {
+    public boolean scrap(ScrapType type, String searchURL, int pageNumber, long sleepMillis) throws Exception {
+        Objects.requireNonNull(type);
+
         super.scrap(searchURL, getDefaultSleepMillis());
 
         WebDriver webDriver = getDriver();
@@ -387,9 +418,16 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                     int reviewPageSize = (dataOffset / lastPageNumber - 1);
                     String redirectURL = searchURL.replace("-Reviews-", String.format("-Reviews-or%d-", dataOffset));
 
-                    //  Log
-                    log.info("redirect to review page#{}(offset : {}) -> redirectURL : {}", pageNumber, (pageNumber - 1) * reviewPageSize, redirectURL);
-                    scrapPage(redirectURL, pageNumber, sleepMillis);
+                    if (type == ScrapType.SCRAP_THE_SEPCIFIED_PAGE) {
+                        //  Log
+                        log.info("redirect to review page#{}(offset : {}) -> redirectURL : {}", pageNumber, (pageNumber - 1) * reviewPageSize, redirectURL);
+                        scrapSpecifiedPage(redirectURL, pageNumber, sleepMillis);
+                    }
+                    else if (type == ScrapType.SCRAP_FROM_PAGE) {
+                        currentPage = pageNumber;
+
+                        scrapSpecifiedPage(redirectURL, pageNumber, sleepMillis);
+                    }
 
                     return true;
                 }
@@ -414,6 +452,13 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         return false;
     }
 
+    /**
+     *
+     *
+     * @param searchURL
+     * @param pageNumber
+     * @return
+     */
     public String getRedirectURL(String searchURL, int pageNumber) {
         WebDriver webDriver = getDriver();
 
@@ -447,6 +492,14 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         return StringUtils.EMPTY;
     }
 
+    /**
+     * Some of reviewer profile has tooltip link.
+     * By calling this method, you can check if the reviewer has profiles and if exists, scrap the profiles.
+     *
+     * @param targetHierarchy
+     * @return
+     * @throws InterruptedException
+     */
     public boolean scrapTooltip(String[] targetHierarchy) throws InterruptedException {
         WebDriver webDriver = getDriver();
         JavascriptExecutor js = (JavascriptExecutor)webDriver;
@@ -482,29 +535,19 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                                 //  사용자 정보 툴립 팝업 로딩
                                 Thread.sleep(WAIT_MILLIS_2_5_SECOND);
 
-                                for (int index2 = 0; index2 < MAX_TRY; ++index2) {
-                                    try {
-                                        //  scrap tool-tip ...
-                                        log.debug("Scrap 'tool-tip' ...");
+                                //  scrap tool-tip ...
+                                log.debug("Scrap 'tool-tip' ...");
 
-                                        List<WebElement> tootipElements = webDriver.findElements(By.cssSelector("body span.ui_overlay.ui_popover.arrow_left"));
-                                        if (tootipElements.size() > 0) {
-                                            WebElement tootipElement = tootipElements.get(0);
-                                            String tooltipHTML = tootipElement.getAttribute("innerHTML");
+                                List<WebElement> tootipElements = webDriver.findElements(By.cssSelector("body span.ui_overlay.ui_popover.arrow_left"));
+                                if (tootipElements.size() > 0) {
+                                    WebElement tootipElement = tootipElements.get(0);
+                                    String tooltipHTML = tootipElement.getAttribute("innerHTML");
 
-                                            if (Objects.nonNull(writer)) {
-                                                log.debug("Saving 'tooltip' HTML ... result : {}", writer.write(new String[]{targetHierarchy[0], targetHierarchy[1], "tooltip"}, String.format("%s.html", reviewId), "<html>" + tooltipHTML + "</html>"));
+                                    if (Objects.nonNull(writer)) {
+                                        log.debug("Saving 'tooltip' HTML ... result : {}", writer.write(new String[]{targetHierarchy[0], targetHierarchy[1], "tooltip"}, String.format("%s.html", reviewId), "<html>" + tooltipHTML + "</html>"));
 
-                                                break;
-                                            }
-                                        }
+                                        break;
                                     }
-                                    catch (Exception excp) {
-                                        //  Log
-                                        log.error("failed to scrap 'tooltip', msg : {}", excp.getMessage());
-                                    }
-
-                                    Thread.sleep(1L * DateUtils.MILLIS_PER_SECOND);
                                 }
 
                                 //  사용자 정보 툴팁 닫기 위한 마우스 액션
@@ -539,6 +582,12 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         return true;
     }
 
+    /**
+     * Find IDs of all review elements. The review elements can be newly generated depends on events (click some buttons, review page reloading etc ...).
+     * Therefore, greping the reference of review elements poses a growing risk with exception, such as broken reference(s).
+     *
+     * @return
+     */
     public List<String> getReviewSelectorIds() {
         WebDriver webDriver = getDriver();
         List<String> reviewSelectorIds = new ArrayList<>();
@@ -552,6 +601,14 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
         return reviewSelectorIds;
     }
+
+    /**
+     * If translation button was shown, this method would check which form/input type (ex, true, false) is set.
+     * If the form/input elements whose value is 'true', then, send 'click' event on the form/input element whose value is 'false' and make this page reloaded.
+     *
+     * @return
+     * @throws InterruptedException
+     */
     public boolean setTranslationIfExists() throws InterruptedException {
         try {
             WebDriver webDriver = getDriver();
@@ -606,6 +663,11 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         return false;
     }
 
+    /**
+     * If the contents of review was fold, this method make the review unfole & make it shown all contents.
+     *
+     * @return
+     */
     public boolean setSeeMoreIfExist() {
         WebDriver webDriver = getDriver();
         JavascriptExecutor js = (JavascriptExecutor) webDriver;
@@ -653,11 +715,22 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         return false;
     }
 
+    /**
+     * This methods will return the one of two 'Tab Menu' elements which is active at that point.
+     *
+     * @return
+     */
     public WebElement getTabMenu() {
         WebDriver webDriver = getDriver();
         return webDriver.findElement(By.cssSelector("ul.tabs_pers_content.easyClear.tb_stickyElt.ui_container"));
     }
 
+    /**
+     * By calling this method, you can traverse the whole page and make all javascript for loading contents called.
+     *
+     * @return
+     * @throws InterruptedException
+     */
     public boolean loadAllPageContent() throws InterruptedException {
         WebDriver webDriver = getDriver();
         JavascriptExecutor js = (JavascriptExecutor)webDriver;
@@ -702,6 +775,11 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         return false;
     }
 
+    /**
+     * scroll to 'Review' Tab.
+     *
+     * @return
+     */
     public boolean goToReview() {
         WebDriver webDriver = getDriver();
         JavascriptExecutor js = (JavascriptExecutor)webDriver;
@@ -723,6 +801,12 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         return false;
     }
 
+    /**
+     * On the top of the review tab, the list of locale type exists. By calling this method, you can see the 'all' reviews.
+     *
+     * @return
+     * @throws InterruptedException
+     */
     public boolean setLocalType() throws InterruptedException {
         try {
             WebDriver webDriver = getDriver();
