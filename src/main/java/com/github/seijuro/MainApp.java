@@ -53,7 +53,7 @@ import java.util.*;
 @Log4j2
 public class MainApp {
     @Getter
-    public static final String UserHomePath = "/Users/sogiro";
+    public static final String UserHomePath = "/Users/myungjoonlee";
     static final String ROOT_DIR_BOOKING = UserHomePath + "/Developer/Booking.com";
     static final String ROOT_DIR_EXPEDIA = UserHomePath + "/Developer/Expedia.com";
     static final String ROOT_DIR_AGODA = UserHomePath + "/Desktop/Agoda.com";
@@ -445,8 +445,6 @@ public class MainApp {
             excp.printStackTrace();
         }
     }
-
-
 
     private static BufferedReader agodaHotelIdReader = null;
     synchronized static String getAgodaNextHotel() {
@@ -1081,7 +1079,7 @@ public class MainApp {
     }
 
     public static void main(String[] args) {
-//        System.setProperty("webdriver.chrome.driver", getUserHomePath() + "/Desktop/chromedriver");
+        System.setProperty("webdriver.chrome.driver", getUserHomePath() + "/Desktop/Selenium-grid/chromedriver");
 
 //        scrapHotelsCom();
 //        scrapBookingCom();
