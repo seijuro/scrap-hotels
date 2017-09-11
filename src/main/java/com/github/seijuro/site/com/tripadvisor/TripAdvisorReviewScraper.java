@@ -145,7 +145,10 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                 try {
                     Thread.sleep(sleepMillis);
                     setCheckInOut();
-                } catch (Exception excp) {
+
+                    break;
+                }
+                catch (Exception excp) {
                     excp.printStackTrace();
 
                     //  Log
@@ -166,91 +169,119 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         boolean didReload;
         boolean hasNextPage;
 
-        do {
-            didReload = false;
+        try {
+            do {
+                didReload = false;
 
-            //  '리뷰 페이지'로 이동
-            if (goToReview()) {
-                //  '모든 언어'로 설정
-                if (!setLocalType()) {
-                    //  Log
-                    log.error("Setting locale failed ... ");
+                //  '리뷰 페이지'로 이동
+                if (goToReview()) {
+                    //  '모든 언어'로 설정
+                    if (!setLocalType()) {
+                        //  Log
+                        log.error("Setting locale failed ... ");
+                    }
+                }
+
+                //  리뷰 리스트 순회
+                do {
+                    hasNextPage = false;
+                    String pageName = String.format("%04d", currentPage);
+                    String[] currentDirHierarchy = new String[]{hotelId, pageName};
+
+                    if (Objects.isNull(writer) ||
+                            (Objects.nonNull(writer) && !writer.exists(currentDirHierarchy))) {
+                        boolean result = true;
+
+                        try {
+                            int scrollY = 0;
+                            List<String> reviewSelectorIds = getReviewSelectorIds();
+
+                            log.debug("reviews count : {}", reviewSelectorIds.size());
+
+                            //  리뷰가 없는 경우
+                            if (reviewSelectorIds.size() == 0) {
+                                //  페이지 저장 후 종료
+                                saveHTMLPageSource(currentDirHierarchy, String.format("%s.html", pageName));
+                                break;
+                            }
+
+                            goToReview();
+                            if (setTranslationIfExists()) {
+                                didReload = true;
+                                break;
+                            }
+
+                            goToReview();
+                            setSeeMoreIfExist();
+
+                            //  사용자 툴팁 윈도우 스크랩
+                            result &= scrapTooltip(currentDirHierarchy);
+                        }
+                        catch (Exception excp) {
+                            excp.printStackTrace();
+
+                            result &= false;
+                        }
+
+                        //  error log에 기록
+                        //  에러 형식은 아래와 같음.
+                        //
+                        //  $hotel-id ':' $page# [ ':' $type ]
+                        //
+                        if (result) {
+                            //  scrap HTML page source ...
+                            log.debug("Scrap 'HTML' page source ...");
+                            saveHTMLPageSource(currentDirHierarchy, String.format("%s.html", pageName));
+                        } else {
+                            writer.error(String.format("%s:%d", hotelId, currentPage));
+                        }
+                    }
+
+                    //  load next reviews if exists.
+                    WebElement nextReviewPageLink = getNextReviewPageLinkIfExists();
+                    if (Objects.nonNull(nextReviewPageLink)) {
+                        hasNextPage = true;
+
+                        ++currentPage;
+                        nextReviewPageLink.click();
+
+                        log.debug("Waiting for reloading & scrolling to the top of reviews ...", currentPage, currentPage + 1);
+                        Thread.sleep(WAIT_MILLIS_2_SECOND);
+                    }
+                } while (hasNextPage);
+            } while (didReload);
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+
+            //  Log
+            log.error("error msg : {}", excp.getMessage());
+            writer.error(String.format("%s:%d:r", hotelId, currentPage));
+        }
+    }
+
+    private WebElement getNextReviewPageLinkIfExists() {
+        WebDriver webDriver = getDriver();
+
+        WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS "));
+        List<WebElement> pagenationElements = reviewsElement.findElements(By.cssSelector("div.prw_rup.prw_common_north_star_pagination"));
+
+        if (pagenationElements.size() > 0) {
+            WebElement pagenationElement = pagenationElements.get(0);
+            List<WebElement> pageNumberElements = pagenationElement.findElements(By.cssSelector("div.unified.pagination.north_star span.nav.next"));
+
+            if (pageNumberElements.size() > 0) {
+                WebElement nextButton = pageNumberElements.get(0);
+
+                if (!nextButton.getAttribute("class").contains("disabled")) {
+                    log.debug("navigate to 'next' review page ... (current : {} , next : {})", currentPage, currentPage + 1);
+
+                    return nextButton;
                 }
             }
+        }
 
-            //  리뷰 리스트 순회
-            do {
-                String pageName = String.format("%04d", currentPage);
-                String[] currentDirHierarchy = new String[]{hotelId, pageName};
-
-                if (Objects.isNull(writer) ||
-                        (Objects.nonNull(writer) && !writer.exists(currentDirHierarchy))) {
-                    boolean result = true;
-
-                    try {
-                        int scrollY = 0;
-                        List<String> reviewSelectorIds = getReviewSelectorIds();
-
-                        log.debug("reviews count : {}", reviewSelectorIds.size());
-
-                        //  리뷰가 없는 경우
-                        if (reviewSelectorIds.size() == 0) {
-                            //  페이지 저장 후 종료
-                            saveHTMLPageSource(currentDirHierarchy, String.format("%s.html", pageName));
-                            break;
-                        }
-
-                        goToReview();
-                        if (setTranslationIfExists()) {
-                            didReload = true;
-                            break;
-                        }
-
-                        goToReview();
-                        setSeeMoreIfExist();
-
-                        //  사용자 툴팁 윈도우 스크랩
-                        result &= scrapTooltip(currentDirHierarchy);
-                    }
-                    catch (Exception excp) {
-                        excp.printStackTrace();
-
-                        result &= false;
-                    }
-
-                    if (!result) {
-                        writer.error(String.format("%s:%d", hotelId, currentPage));
-                    }
-
-                    //  scrap HTML page source ...
-                    log.debug("Scrap 'HTML' page source ...");
-                    saveHTMLPageSource(currentDirHierarchy, String.format("%s.html", pageName));
-                }
-
-                hasNextPage = false;
-                WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS "));
-                List<WebElement> pagenationElements = reviewsElement.findElements(By.cssSelector("div.prw_rup.prw_common_north_star_pagination"));
-
-                if (pagenationElements.size() > 0) {
-                    WebElement pagenationElement = pagenationElements.get(0);
-                    List<WebElement> pageNumberElements = pagenationElement.findElements(By.cssSelector("div.unified.pagination.north_star span.nav.next"));
-
-                    if (pageNumberElements.size() > 0) {
-                        WebElement nextButton = pageNumberElements.get(0);
-
-                        if (!nextButton.getAttribute("class").contains("disabled")) {
-                            log.debug("navigate to 'next' review page ... (current : {} , next : {})", currentPage, currentPage + 1);
-                            hasNextPage = true;
-                            ++currentPage;
-                            nextButton.click();
-
-                            log.debug("Waiting for reloading & scrolling to the top of reviews ...", currentPage, currentPage + 1);
-                            Thread.sleep(WAIT_MILLIS_2_SECOND);
-                        }
-                    }
-                }
-            } while (hasNextPage);
-        } while (didReload);
+        return null;
     }
 
     /**
@@ -274,7 +305,10 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                 try {
                     Thread.sleep(sleepMillis);
                     setCheckInOut();
-                } catch (Exception excp) {
+
+                    break;
+                }
+                catch (Exception excp) {
                     excp.printStackTrace();
 
                     //  Log
@@ -367,7 +401,10 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                 try {
                     Thread.sleep(sleepMillis);
                     setCheckInOut();
-                } catch (Exception excp) {
+
+                    break;
+                }
+                catch (Exception excp) {
                     excp.printStackTrace();
 
                     //  Log
@@ -402,41 +439,42 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
         if (pagenationElements.size() > 0) {
             WebElement pagenationElement = pagenationElements.get(0);
-            List<WebElement> pageNumberElements = pagenationElement.findElements(By.cssSelector("div.unified.pagination.north_star div.pageNumbers span.pageNum"));
+            List<WebElement> lastPageNumberElements = pagenationElement.findElements(By.cssSelector("div.unified.pagination.north_star div.pageNumbers span.pageNum.last"));
 
-            for (WebElement pageNumberElement : pageNumberElements) {
-                if (!pageNumberElement.getAttribute("class").contains("last")) {
-                    continue;
-                }
+            if (lastPageNumberElements.size() > 0) {
+                WebElement lastPageElement = lastPageNumberElements.get(0);
 
-                int lastPageNumber = Integer.parseInt(pageNumberElement.getAttribute("data-page-number"));
-                int dataOffset = Integer.parseInt(pageNumberElement.getAttribute("data-offset"));
+                int lastPageNumber = Integer.parseInt(lastPageElement.getAttribute("data-page-number"));
+                int lastPageDataOffset = Integer.parseInt(lastPageElement.getAttribute("data-offset"));
 
-                assert(lastPageNumber > 1);
+                if (lastPageNumber > 1) {
+                    if (pageNumber <= lastPageNumber) {
+                        int reviewPageSize = (lastPageDataOffset / (lastPageNumber - 1));
+                        int targetPageOffset = reviewPageSize * (pageNumber - 1);
+                        String redirectURL = searchURL.replace("-Reviews-", String.format("-Reviews-or%d-", targetPageOffset));
 
-                if (pageNumber <= lastPageNumber) {
-                    int reviewPageSize = (dataOffset / lastPageNumber - 1);
-                    String redirectURL = searchURL.replace("-Reviews-", String.format("-Reviews-or%d-", dataOffset));
+                        if (type == ScrapType.SCRAP_THE_SEPCIFIED_PAGE) {
+                            //  Log
+                            log.info("redirect to review page#{}(offset : {}) -> redirectURL : {}", pageNumber, targetPageOffset, redirectURL);
+                            scrapSpecifiedPage(redirectURL, pageNumber, sleepMillis);
+                        } else if (type == ScrapType.SCRAP_FROM_PAGE) {
+                            currentPage = pageNumber;
 
-                    if (type == ScrapType.SCRAP_THE_SEPCIFIED_PAGE) {
+                            scrapSpecifiedPage(redirectURL, pageNumber, sleepMillis);
+                        }
+
+                        return true;
+                    } else {
                         //  Log
-                        log.info("redirect to review page#{}(offset : {}) -> redirectURL : {}", pageNumber, (pageNumber - 1) * reviewPageSize, redirectURL);
-                        scrapSpecifiedPage(redirectURL, pageNumber, sleepMillis);
-                    }
-                    else if (type == ScrapType.SCRAP_FROM_PAGE) {
-                        currentPage = pageNumber;
+                        log.warn("request page#{} is bigger than last page#{}", pageNumber, lastPageNumber);
+                        writer.error(String.format("%s:%d", hotelId, pageNumber));
 
-                        scrapSpecifiedPage(redirectURL, pageNumber, sleepMillis);
+                        return false;
                     }
-
-                    return true;
                 }
                 else {
-                    //  Log
-                    log.warn("request page#{} is bigger than last page#{}", pageNumber, lastPageNumber);
-                    writer.error(String.format("%s:%d", hotelId, pageNumber));
-
-                    return false;
+                    //  page#1 is last page.
+                    scrapSpecifiedPage(searchURL, 1, sleepMillis);
                 }
             }
 
@@ -448,6 +486,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
             //  Log
             log.warn("There aren't pagination element ...");
         }
+
         writer.error(String.format("%s:%d", hotelId, pageNumber));
         return false;
     }
@@ -505,6 +544,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         JavascriptExecutor js = (JavascriptExecutor)webDriver;
 
         List<String> reviewSelectorIds = getReviewSelectorIds();
+        boolean result = true;
 
         for (String reviewSelecrId : reviewSelectorIds) {
             for (int index = 0; index < MAX_TRY; ++index) {
@@ -558,7 +598,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                         }
                     }
 
-                    //  다음 리뷰 / 페이지 네비게이션으로 이동
+                    //  다음 리뷰 or 페이지 네비게이션으로 이동
                     int scrollY = reviewSelector.getSize().getHeight();
                     log.debug("Scroll to 'current review'  view ...");
                     for (int i = 0; i < scrollY / 20; i++) {
@@ -576,10 +616,15 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                     log.error("Failed to find review selector (id : {}) ... ({} / {})", reviewSelecrId, index + 1, MAX_TRY);
                     Thread.sleep(WAIT_MILLIS_1_SECOND);
                 }
+
+                //  MAX_TRY 시도 이내에 툴팁을 스크랩하지 못 한 경우, 재수집을 위한 실패로 간주.
+                if ((index + 1) == MAX_TRY) {
+                    result = false;
+                }
             }   //  retry block
         }
 
-        return true;
+        return result;
     }
 
     /**
@@ -609,7 +654,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
      * @return
      * @throws InterruptedException
      */
-    public boolean setTranslationIfExists() throws InterruptedException {
+    public boolean setTranslationIfExists() throws Exception {
         try {
             WebDriver webDriver = getDriver();
             JavascriptExecutor js = (JavascriptExecutor) webDriver;
@@ -653,11 +698,8 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                 scrollY = reviewContainer.getSize().getHeight();
             }
         }
-        catch (InterruptedException excp) {
-            throw excp;
-        }
         catch (Exception excp) {
-            excp.printStackTrace();
+            throw excp;
         }
 
         return false;
@@ -668,7 +710,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
      *
      * @return
      */
-    public boolean setSeeMoreIfExist() {
+    public boolean setSeeMoreIfExist() throws Exception {
         WebDriver webDriver = getDriver();
         JavascriptExecutor js = (JavascriptExecutor) webDriver;
 
@@ -707,6 +749,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
             }
             catch (Exception excp) {
                 log.error("Checking translation & see more button failed");
+                throw excp;
             }
 
             scrollY = reviewContainer.getSize().getHeight();
