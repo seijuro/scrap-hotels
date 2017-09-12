@@ -54,7 +54,10 @@ import java.util.*;
 @Log4j2
 public class MainApp {
     @Getter
-    public static final String UserHomePath = "/Users/sogiro";
+    public static final String UserHomePath = "/Users/myungjoonlee";
+    @Getter
+    public static final String ChromeDriverPath = UserHomePath + "/Desktop/Selenium-grid/chromedriver";
+
     static final String ROOT_DIR_BOOKING = UserHomePath + "/Developer/Booking.com";
     static final String ROOT_DIR_EXPEDIA = UserHomePath + "/Developer/Expedia.com";
     static final String ROOT_DIR_AGODA = UserHomePath + "/Desktop/Agoda.com";
@@ -322,7 +325,7 @@ public class MainApp {
             int offset = 0;
             String requestURL = getBookingSeoulURL(rows, offset);
 
-            System.setProperty("webdriver.chrome.driver", "/Users/sogiro/IdeaProjects/chromedriver");
+            System.setProperty("webdriver.chrome.driver", getChromeDriverPath());
             WebDriver driver = new ChromeDriver();
             driver.get(requestURL);
 
@@ -1079,8 +1082,214 @@ public class MainApp {
         return results;
     }
 
+    private static List<Thread> createTripAdvisorReviewScraperThread(int threadCount, final LinkedHashMap<String, String> hotelInfos, final Iterator<String> hotelInfoIdIterator) {
+        List<Thread> threads = new ArrayList<>();
+
+        for (int index = 0; index < threadCount; ++index) {
+            threads.add(new Thread(() -> {
+                WebDriver webDriver = null;
+                Capabilities capabilities = DesiredCapabilities.chrome();
+
+                try {
+                    webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
+
+                    TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
+                    BasicHTMLFileWriter writer = new BasicHTMLFileWriter(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
+
+                    while (true) {
+                        String hotelId = null;
+                        String searchURL = null;
+
+                        synchronized (hotelInfoIdIterator) {
+                            if (hotelInfoIdIterator.hasNext()) {
+                                hotelId = hotelInfoIdIterator.next();
+                                searchURL = hotelInfos.get(hotelId);
+                            }
+                            else {
+                                break;
+                            }
+                        }
+
+                        if (writer.exists(new String[] {hotelId})) { continue; }
+
+                        scraper.setHotelId(hotelId);
+                        scraper.setWriter(writer);
+                        scraper.scrap(searchURL, 2L * DateUtils.MILLIS_PER_SECOND);
+                    }
+                }
+                catch (Exception excp) {
+                    excp.printStackTrace();
+                }
+
+                //  quit!
+                if (Objects.nonNull(webDriver)) {
+                    webDriver.quit();
+                }
+            }));
+        }
+
+        return threads;
+    }
+
+    private static List<Thread> createRecoverTripAdvisorReviewThread(int threadCount, final Map<String, String> hotelInfos, final Iterator<String> iterErrorLogs) {
+        List<Thread> threads = new ArrayList<>();
+
+        for (int index = 0; index < threadCount; ++index) {
+            {
+                threads.add(new Thread(() -> {
+                    WebDriver webDriver = null;
+
+                    try {
+                        Capabilities capabilities = DesiredCapabilities.chrome();
+                        webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
+
+                        TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
+                        BasicHTMLFileWriter writer = new BasicHTMLFileWriter(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
+
+                        LinkedHashMap<String, Integer> hotelIdsToRecover = new LinkedHashMap<>();
+
+                        String errorLog = null;
+
+                        do {
+                            synchronized (iterErrorLogs) {
+                                if (iterErrorLogs.hasNext()) {
+                                    errorLog = iterErrorLogs.next();
+                                }
+                                else {
+                                    break;
+                                }
+                            }
+
+                            if (StringUtils.isNotEmpty(errorLog)) {
+                                String[] tokens = errorLog.split(":");
+
+                                String hotelId = StringUtils.stripToEmpty(tokens[0]);
+                                String searchURL = hotelInfos.get(hotelId);
+                                int pageNumber = Integer.parseInt(StringUtils.stripToEmpty(tokens[1]));
+
+                                log.debug("hotel-id : {}, page# : {}, url : {}", hotelId, pageNumber, searchURL);
+
+                                if (tokens.length > 2) {
+                                    log.debug("error type : {}", tokens[2]);
+
+                                    if (tokens[2].equals("r")) {
+                                        log.debug("scrap from page# : {}", pageNumber);
+                                    }
+
+                                    //  일단, 패스
+                                    //  테스트 이후,
+                                    continue;
+                                }
+
+                                scraper.setHotelId(hotelId);
+                                scraper.setWriter(writer);
+                                scraper.scrapOnly(searchURL, pageNumber, 3L * DateUtils.MILLIS_PER_SECOND);
+                            }
+                        } while (true);
+
+                        webDriver.quit();
+                    }
+                    catch (Exception excp) {
+                        excp.printStackTrace();
+                    }
+
+                    if (Objects.nonNull(webDriver)) {
+                        webDriver.quit();
+                    }
+                }));
+            }
+        }
+
+        return threads;
+    }
+
+
+    private static void recoverErrorTripAdvisorReviews(int maxThread) {
+        try {
+            final LinkedHashMap<String, String> hotelInfos = new LinkedHashMap<>();
+            final List<String> errorLogs = new ArrayList<>();
+
+
+            String line;
+
+            //  load hotel-ids
+            {
+                BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/TripAdvisorLinkURL_U.txt"));
+                while (Objects.nonNull(line = reader.readLine())) {
+                    String[] tokens = line.split(":", 2);
+                    hotelInfos.put(tokens[0].trim(), tokens[1].trim());
+                }
+
+                reader.close();
+            }
+
+            {
+                BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews/error.txt"));
+                while (Objects.nonNull(line = reader.readLine())) {
+                    // check comment line
+                    if (line.trim().startsWith("#")) { continue; }
+                    errorLogs.add(line);
+                }
+
+                reader.close();
+            }
+
+            Iterator<String> iterErrorLogs = errorLogs.iterator();
+
+            List<Thread> threads = createRecoverTripAdvisorReviewThread(maxThread, hotelInfos, iterErrorLogs);
+
+            for (Thread thread : threads) {
+                thread.start();
+            }
+
+            for (Thread thread : threads) {
+                thread.join();
+            }
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+    }
+
+
+    private static void scrapTripAdvisorReviews(int maxThread) {
+        try {
+            final LinkedHashMap<String, String> hotelInfos = new LinkedHashMap<>();
+
+            String line;
+
+            //  load hotel-ids
+            {
+                BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/TripAdvisorLinkURL_U.txt"));
+                while (Objects.nonNull(line = reader.readLine())) {
+                    String[] tokens = line.split(":", 2);
+                    hotelInfos.put(tokens[0].trim(), tokens[1].trim());
+                }
+
+                reader.close();
+            }
+
+            Iterator<String> hotelInfoIterator = hotelInfos.keySet().iterator();
+            List<Thread> threads = createTripAdvisorReviewScraperThread(maxThread, hotelInfos, hotelInfoIterator);
+
+            //  threads start
+            for (Thread thread : threads) {
+                thread.start();
+
+                Thread.sleep(1000L);
+            }
+
+            for (Thread thread : threads) {
+                thread.join();
+            }
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+    }
+
     public static void main(String[] args) {
-//        System.setProperty("webdriver.chrome.driver", getUserHomePath() + "/Desktop/Selenium-grid/chromedriver");
+//        System.setProperty("webdriver.chrome.driver", getChromeDriverPath());
 
 //        scrapHotelsCom();
 //        scrapBookingCom();
@@ -1287,132 +1496,8 @@ public class MainApp {
 //        extractTripAdvisorHotelReviewURL();
 
 
-
-        try {
-            int maxThread = 3;
-            final LinkedHashMap<String, String> hotelInfos = new LinkedHashMap<>();
-            final HashMap<String, Integer> errorPages = new HashMap<>();
-            final Map<String, String> errorTypes = new HashMap<>();
-
-            String line;
-
-            //  load hotel-ids
-            {
-                BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/TripAdvisorLinkURL_U.txt"));
-                while (Objects.nonNull(line = reader.readLine())) {
-                    String[] tokens = line.split(":", 2);
-                    hotelInfos.put(tokens[0].trim(), tokens[1].trim());
-                }
-
-                reader.close();
-            }
-
-            Iterator<String> hotelInfoIterator = hotelInfos.keySet().iterator();
-            List<Thread> threads = new ArrayList<>();
-
-            for (int index = 0; index < maxThread; ++index) {
-                threads.add(new Thread(() -> {
-                    WebDriver webDriver = null;
-                    Capabilities capabilities = DesiredCapabilities.chrome();
-
-                    try {
-                        webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
-
-                        TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
-                        BasicHTMLFileWriter writer = new BasicHTMLFileWriter(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
-
-                        while (true) {
-                            String hotelId = null;
-                            String searchURL = null;
-
-                            synchronized (hotelInfoIterator) {
-                                if (hotelInfoIterator.hasNext()) {
-                                    hotelId = hotelInfoIterator.next();
-                                    searchURL = hotelInfos.get(hotelId);
-                                }
-                                else {
-                                    break;
-                                }
-                            }
-
-                            if (writer.exists(new String[] {hotelId})) { continue; }
-
-                            scraper.setHotelId(hotelId);
-                            scraper.setWriter(writer);
-                            scraper.scrap(searchURL, 2L * DateUtils.MILLIS_PER_SECOND);
-                        }
-                    }
-                    catch (Exception excp) {
-                        excp.printStackTrace();
-                    }
-
-                    //  quit!
-                    if (Objects.nonNull(webDriver)) {
-                        webDriver.quit();
-                    }
-                }));
-            }
-
-            //  threads start
-            for (Thread thread : threads) {
-                thread.start();
-
-                Thread.sleep(1000L);
-            }
-
-            for (Thread thread : threads) {
-                thread.join();
-            }
-
-
-//            {
-//                BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews/error.txt"));
-//                while (Objects.nonNull(line = reader.readLine())) {
-//                    String[] tokens = line.split(":", 3);
-//                    errorPages.put(tokens[0], Integer.parseInt(tokens[1]));
-//                    if (tokens.length > 2) {
-//                        errorTypes.put(tokens[0], tokens[2]);
-//                    }
-//                }
-//
-//                reader.close();
-//
-//                WebDriver webDriver = null;
-//
-//                try {
-//                    Capabilities capabilities = DesiredCapabilities.chrome();
-//                    webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
-//
-//                    TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
-//                    BasicHTMLFileWriter writer = new BasicHTMLFileWriter(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
-//
-//                    for (String hotekId : errorPages.keySet()) {
-//                        String searchURL = hotelInfos.get(hotekId);
-//                        String errorType = errorTypes.get(hotekId);
-//                        int pageNumber = errorPages.get(hotekId);
-//                        TripAdvisorReviewScraper.ScrapType scrapType = TripAdvisorReviewScraper.ScrapType.SCRAP_THE_SEPCIFIED_PAGE;
-//
-//                        log.debug("hotel-id : {}, type : {}, page# : {}, url : {}", hotekId, errorType, pageNumber, searchURL);
-//                        scraper.setHotelId(hotekId);
-//                        scraper.scrap(scrapType, searchURL, pageNumber, 3000);
-//                    }
-//
-//                    webDriver.quit();
-//                }
-//                catch (Exception excp) {
-//                    excp.printStackTrace();
-//                }
-//
-//                if (Objects.nonNull(webDriver)) {
-//                    webDriver.quit();
-//                }
-//            }
-        }
-        catch (Exception excp) {
-            excp.printStackTrace();
-        }
-
-
+        scrapTripAdvisorReviews(4);
+        recoverErrorTripAdvisorReviews(4);
 
 
         /**
