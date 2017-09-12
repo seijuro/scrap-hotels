@@ -25,6 +25,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
     public static final long WAIT_MILLIS_2_SECOND = 2000L;
     public static final long WAIT_MILLIS_2_5_SECOND = 2500L;
     public static final long WAIT_MILLIS_3_SECOND = 3000L;
+    public static final long WAIT_MILLIS_4_SECOND = 4000L;
 
     public static final int MAX_TRY = 3;
 
@@ -314,16 +315,21 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
         goToReview();
 
-        String redirectURL = getRedirectURL(searchURL, pageNumber);
+        if (pageNumber > 1) {
+            String redirectURL = getRedirectURL(searchURL, pageNumber);
 
-        if (StringUtils.isNotEmpty(redirectURL)) {
-            scrap(ScrapType.SCRAP_THE_ONLY_SPECIFIED_PAGE, redirectURL, pageNumber, sleepMillis);
+            if (StringUtils.isNotEmpty(redirectURL)) {
+                scrap(ScrapType.SCRAP_THE_ONLY_SPECIFIED_PAGE, redirectURL, pageNumber, sleepMillis);
+            }
+            else {
+                //  Log
+                log.error("Can not redirect to the speified page (hotel-id : {}, page# : {}).", hotelId, pageNumber);
+
+                writer.error(String.format("#recover[failed] -> %s:%d", hotelId, pageNumber));
+            }
         }
         else {
-            //  Log
-            log.error("Can not redirect to the speified page (hotel-id : {}, page# : {}).", hotelId, pageNumber);
-
-            writer.error(String.format("#recover[failed] -> %s:%d", hotelId, pageNumber));
+            scrap(ScrapType.SCRAP_THE_ONLY_SPECIFIED_PAGE, searchURL, 1, sleepMillis);
         }
     }
 
@@ -392,11 +398,12 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
                 assert(dataPageNumber > 1);
 
-                int reviewPageSize = (dataOffset / dataPageNumber - 1);
-                String redirectURL = searchURL.replace("-Reviews-", String.format("-Reviews-or%d-", dataOffset));
+                int reviewPageSize = (dataOffset / (dataPageNumber - 1));
+                int targetOffset = reviewPageSize * (pageNumber - 1);
+                String redirectURL = searchURL.replace("-Reviews-", String.format("-Reviews-or%d-", targetOffset));
 
                 //  Log
-                log.info("redirect to review page#{}(offset : {}) -> redirectURL : {}", pageNumber, (pageNumber - 1) * reviewPageSize, redirectURL);
+                log.info("redirect to review page#{}(offset : {}) -> redirectURL : {}", pageNumber, targetOffset, redirectURL);
 
                 return redirectURL;
             }
@@ -453,7 +460,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                                 Actions mouseOverAction = new Actions(webDriver);
                                 mouseOverAction.moveToElement(memberOverlayLink).build().perform();
                                 //  사용자 정보 툴립 팝업 로딩
-                                Thread.sleep(WAIT_MILLIS_2_5_SECOND);
+                                Thread.sleep(WAIT_MILLIS_4_SECOND);
 
                                 //  scrap tool-tip ...
                                 log.debug("Scrap 'tool-tip' ...");
