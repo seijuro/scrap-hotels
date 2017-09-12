@@ -28,8 +28,8 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
     public static final int MAX_TRY = 3;
 
-    public enum ScrapType {
-        SCRAP_THE_SEPCIFIED_PAGE,
+    private enum ScrapType {
+        SCRAP_THE_ONLY_SPECIFIED_PAGE,
         SCRAP_FROM_PAGE
     }
 
@@ -70,45 +70,60 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         //  wait additional ms ...
         WebDriver webDriver = getDriver();
 
-        //  check-in
-        {
-            WebElement checkInDatePicker = webDriver.findElement(By.cssSelector("body span.ui_overlay.ui_popover.arrow_left.date_picker_modal.CHECKIN"));
-            WebElement dateTitle = checkInDatePicker.findElement(By.cssSelector("span div div div div span span.dsdc-month-title"));
-            int month = Integer.parseInt(dateTitle.getText().split("\\s+")[1].replaceAll("\\D+", ""));
+        if (!didSetCheckInOut) {
+            for (int index = 0; index < MAX_TRY; ++index) {
+                try {
+                    //  check-in
+                    {
+                        WebElement checkInDatePicker = webDriver.findElement(By.cssSelector("body span.ui_overlay.ui_popover.arrow_left.date_picker_modal.CHECKIN"));
+                        WebElement dateTitle = checkInDatePicker.findElement(By.cssSelector("span div div div div span span.dsdc-month-title"));
+                        int month = Integer.parseInt(dateTitle.getText().split("\\s+")[1].replaceAll("\\D+", ""));
 
-            //  Log
-            log.debug("current month : {}", month);
+                        //  Log
+                        log.debug("current month : {}", month);
 
-            //  next month button
-            WebElement nextMonthElement = checkInDatePicker.findElement(By.cssSelector("div.dsdc-next.ui_icon.single-chevron-right-circle"));
-            for (; month < 11; ++month) {
-                log.debug("Click 'Next month' button ...");
+                        //  next month button
+                        WebElement nextMonthElement = checkInDatePicker.findElement(By.cssSelector("div.dsdc-next.ui_icon.single-chevron-right-circle"));
+                        for (; month < 11; ++month) {
+                            log.debug("Click 'Next month' button ...");
 
-                nextMonthElement.click();
-                Thread.sleep(WAIT_MILLIS_1_SECOND);
+                            nextMonthElement.click();
+                            Thread.sleep(WAIT_MILLIS_1_SECOND);
+                        }
+
+                        //  Log
+                        log.debug("Choose 'Day' (check-in : {})", 15);
+
+                        WebElement startDateElement = checkInDatePicker.findElement(By.cssSelector("span.dsdc-cell.dsdc-day[data-date='2017-10-15']"));
+                        startDateElement.click();
+                        Thread.sleep(WAIT_MILLIS_1_SECOND);
+                    }
+
+                    //  check-out
+                    {
+                        WebElement checkOutDatePicker = webDriver.findElement(By.cssSelector("body span.ui_overlay.ui_popover.arrow_left.date_picker_modal.CHECKOUT"));
+
+                        //  Log
+                        log.debug("Choose 'Day' (check-out : {}).", 16);
+
+                        WebElement endDateElement = checkOutDatePicker.findElement(By.cssSelector("span.dsdc-cell.dsdc-day[data-date='2017-10-16']"));
+                        endDateElement.click();
+                        Thread.sleep(WAIT_MILLIS_1_SECOND);
+                    }
+
+                    didSetCheckInOut = true;
+                    break;
+                }
+                catch (InterruptedException excp) {
+                    throw excp;
+                }
+                catch (Exception excp) {
+                    excp.printStackTrace();
+                }
+
+                Thread.sleep(getDefaultSleepMillis());
             }
-
-            //  Log
-            log.debug("Choose 'Day' (check-in : {})", 15);
-
-            WebElement startDateElement = checkInDatePicker.findElement(By.cssSelector("span.dsdc-cell.dsdc-day[data-date='2017-10-15']"));
-            startDateElement.click();
-            Thread.sleep(WAIT_MILLIS_1_SECOND);
         }
-
-        //  check-out
-        {
-            WebElement checkOutDatePicker = webDriver.findElement(By.cssSelector("body span.ui_overlay.ui_popover.arrow_left.date_picker_modal.CHECKOUT"));
-
-            //  Log
-            log.debug("Choose 'Day' (check-out : {}).", 16);
-
-            WebElement endDateElement = checkOutDatePicker.findElement(By.cssSelector("span.dsdc-cell.dsdc-day[data-date='2017-10-16']"));
-            endDateElement.click();
-            Thread.sleep(WAIT_MILLIS_1_SECOND);
-        }
-
-        didSetCheckInOut = true;
     }
 
     /**
@@ -135,37 +150,47 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
      */
     @Override
     public void scrap(String searchURL, long sleepMillis) throws Exception {
+        scrap(ScrapType.SCRAP_FROM_PAGE, searchURL, 1, sleepMillis);
+    }
+
+    private WebElement getNextReviewPageLinkIfExists() {
+        WebDriver webDriver = getDriver();
+
+        WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS "));
+        List<WebElement> pagenationElements = reviewsElement.findElements(By.cssSelector("div.prw_rup.prw_common_north_star_pagination"));
+
+        if (pagenationElements.size() > 0) {
+            WebElement pagenationElement = pagenationElements.get(0);
+            List<WebElement> pageNumberElements = pagenationElement.findElements(By.cssSelector("div.unified.pagination.north_star span.nav.next"));
+
+            if (pageNumberElements.size() > 0) {
+                WebElement nextButton = pageNumberElements.get(0);
+
+                if (!nextButton.getAttribute("class").contains("disabled")) {
+                    log.debug("navigate to 'next' review page ... (current : {} , next : {})", currentPage, currentPage + 1);
+
+                    return nextButton;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private void scrap(ScrapType scrapType, String searchURL, int pageNumber, long sleepMillis) throws Exception {
         super.scrap(searchURL, getDefaultSleepMillis());
 
         WebDriver webDriver = getDriver();
         JavascriptExecutor js = (JavascriptExecutor)webDriver;
 
-        if (!didSetCheckInOut) {
-            for (int index = 0; index < MAX_TRY; ++index) {
-                try {
-                    Thread.sleep(sleepMillis);
-                    setCheckInOut();
-
-                    break;
-                }
-                catch (Exception excp) {
-                    excp.printStackTrace();
-
-                    //  Log
-                    log.debug("Failed to choose check-in/out date ... wait for a second & retry");
-                    Thread.sleep(sleepMillis);
-                }
-            }
-
-            Thread.sleep(sleepMillis);
-        }
+        setCheckInOut();
 
         if (loadAllPageContent()) {
             //  Log
             log.debug("Loading all content of page is done ...");
         }
 
-        currentPage = 1;
+        currentPage = pageNumber;
         boolean didReload;
         boolean hasNextPage;
 
@@ -237,16 +262,18 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                         }
                     }
 
-                    //  load next reviews if exists.
-                    WebElement nextReviewPageLink = getNextReviewPageLinkIfExists();
-                    if (Objects.nonNull(nextReviewPageLink)) {
-                        hasNextPage = true;
+                    if (scrapType == ScrapType.SCRAP_FROM_PAGE) {
+                        //  load next reviews if exists.
+                        WebElement nextReviewPageLink = getNextReviewPageLinkIfExists();
+                        if (Objects.nonNull(nextReviewPageLink)) {
+                            hasNextPage = true;
 
-                        ++currentPage;
-                        nextReviewPageLink.click();
+                            ++currentPage;
+                            nextReviewPageLink.click();
 
-                        log.debug("Waiting for reloading & scrolling to the top of reviews ...", currentPage, currentPage + 1);
-                        Thread.sleep(WAIT_MILLIS_2_SECOND);
+                            log.debug("Waiting for reloading & scrolling to the top of reviews ...", currentPage, currentPage + 1);
+                            Thread.sleep(WAIT_MILLIS_2_SECOND);
+                        }
                     }
                 } while (hasNextPage);
             } while (didReload);
@@ -260,161 +287,13 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         }
     }
 
-    private WebElement getNextReviewPageLinkIfExists() {
-        WebDriver webDriver = getDriver();
-
-        WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS "));
-        List<WebElement> pagenationElements = reviewsElement.findElements(By.cssSelector("div.prw_rup.prw_common_north_star_pagination"));
-
-        if (pagenationElements.size() > 0) {
-            WebElement pagenationElement = pagenationElements.get(0);
-            List<WebElement> pageNumberElements = pagenationElement.findElements(By.cssSelector("div.unified.pagination.north_star span.nav.next"));
-
-            if (pageNumberElements.size() > 0) {
-                WebElement nextButton = pageNumberElements.get(0);
-
-                if (!nextButton.getAttribute("class").contains("disabled")) {
-                    log.debug("navigate to 'next' review page ... (current : {} , next : {})", currentPage, currentPage + 1);
-
-                    return nextButton;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * scrap Review Page whose page number is specified in param.
-     * To use this method, you must calculate the offset from the page number, and offset size per page.
-     * Finally, the offset should be descripted in searchURL.
-     *
-     * @param searchURL
-     * @param pageNumber
-     * @param sleepMillis
-     * @throws Exception
-     */
-    private void scrapSpecifiedPage(String searchURL, int pageNumber, long sleepMillis) throws Exception {
+    public void scrapOnly(String searchURL, int pageNumber, long sleepMillis) throws Exception {
         super.scrap(searchURL, getDefaultSleepMillis());
 
         WebDriver webDriver = getDriver();
         JavascriptExecutor js = (JavascriptExecutor)webDriver;
 
-        if (!didSetCheckInOut) {
-            for (int index = 0; index < MAX_TRY; ++index) {
-                try {
-                    Thread.sleep(sleepMillis);
-                    setCheckInOut();
-
-                    break;
-                }
-                catch (Exception excp) {
-                    excp.printStackTrace();
-
-                    //  Log
-                    log.debug("Failed to choose check-in/out date ... wait for a second & retry");
-                    Thread.sleep(sleepMillis);
-                }
-            }
-
-            Thread.sleep(sleepMillis);
-        }
-
-        if (loadAllPageContent()) {
-            //  Log
-            log.debug("Loading all content of page is done ...");
-        }
-
-        boolean didReload;
-
-        String pageName = String.format("%04d", pageNumber);
-        String[] currentDirHierarchy = new String[]{hotelId, pageName};
-
-        do {
-            didReload = false;
-
-            //  '리뷰 페이지'로 이동
-            if (goToReview()) {
-                //  '모든 언어'로 설정
-                if (!setLocalType()) {
-                    //  Log
-                    log.error("Setting locale failed ... ");
-                }
-            }
-
-            //  리뷰 리스트 순회
-            if (!Objects.nonNull(writer)) {
-                boolean result = true;
-
-                try {
-                    int scrollY = 0;
-                    List<String> reviewSelectorIds = getReviewSelectorIds();
-
-                    log.debug("reviews count : {}", reviewSelectorIds.size());
-
-                    //  리뷰가 없는 경우
-                    if (reviewSelectorIds.size() == 0) {
-                        //  페이지 저장 후 종료
-                        saveHTMLPageSource(currentDirHierarchy, String.format("%s.html", pageName));
-                        break;
-                    }
-
-                    goToReview();
-                    if (setTranslationIfExists()) {
-                        didReload = true;
-                        break;
-                    }
-
-                    goToReview();
-                    setSeeMoreIfExist();
-
-                    //  사용자 툴팁 윈도우 스크랩
-                    result &= scrapTooltip(currentDirHierarchy);
-                }
-                catch (Exception excp) {
-                    excp.printStackTrace();
-
-                    result &= false;
-                }
-
-                if (!result) {
-                    writer.error(String.format("%s:%d", hotelId, pageNumber));
-                }
-            }
-        } while (didReload);
-
-        //  scrap HTML page source ...
-        log.debug("Scrap 'HTML' page source ...");
-        saveHTMLPageSource(currentDirHierarchy, String.format("%s.html", pageName));
-    }
-
-    public boolean scrap(ScrapType type, String searchURL, int pageNumber, long sleepMillis) throws Exception {
-        Objects.requireNonNull(type);
-
-        super.scrap(searchURL, getDefaultSleepMillis());
-
-        WebDriver webDriver = getDriver();
-        JavascriptExecutor js = (JavascriptExecutor)webDriver;
-
-        if (!didSetCheckInOut) {
-            for (int index = 0; index < MAX_TRY; ++index) {
-                try {
-                    Thread.sleep(sleepMillis);
-                    setCheckInOut();
-
-                    break;
-                }
-                catch (Exception excp) {
-                    excp.printStackTrace();
-
-                    //  Log
-                    log.debug("Failed to choose check-in/out date ... wait for a second & retry");
-                    Thread.sleep(sleepMillis);
-                }
-            }
-
-            Thread.sleep(sleepMillis);
-        }
+        setCheckInOut();
 
         if (loadAllPageContent()) {
             //  Log
@@ -434,61 +313,56 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
         goToReview();
 
-        WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS "));
-        List<WebElement> pagenationElements = reviewsElement.findElements(By.cssSelector("div.prw_rup.prw_common_north_star_pagination"));
+        String redirectURL = getRedirectURL(searchURL, pageNumber);
 
-        if (pagenationElements.size() > 0) {
-            WebElement pagenationElement = pagenationElements.get(0);
-            List<WebElement> lastPageNumberElements = pagenationElement.findElements(By.cssSelector("div.unified.pagination.north_star div.pageNumbers span.pageNum.last"));
-
-            if (lastPageNumberElements.size() > 0) {
-                WebElement lastPageElement = lastPageNumberElements.get(0);
-
-                int lastPageNumber = Integer.parseInt(lastPageElement.getAttribute("data-page-number"));
-                int lastPageDataOffset = Integer.parseInt(lastPageElement.getAttribute("data-offset"));
-
-                if (lastPageNumber > 1) {
-                    if (pageNumber <= lastPageNumber) {
-                        int reviewPageSize = (lastPageDataOffset / (lastPageNumber - 1));
-                        int targetPageOffset = reviewPageSize * (pageNumber - 1);
-                        String redirectURL = searchURL.replace("-Reviews-", String.format("-Reviews-or%d-", targetPageOffset));
-
-                        if (type == ScrapType.SCRAP_THE_SEPCIFIED_PAGE) {
-                            //  Log
-                            log.info("redirect to review page#{}(offset : {}) -> redirectURL : {}", pageNumber, targetPageOffset, redirectURL);
-                            scrapSpecifiedPage(redirectURL, pageNumber, sleepMillis);
-                        } else if (type == ScrapType.SCRAP_FROM_PAGE) {
-                            currentPage = pageNumber;
-
-                            scrapSpecifiedPage(redirectURL, pageNumber, sleepMillis);
-                        }
-
-                        return true;
-                    } else {
-                        //  Log
-                        log.warn("request page#{} is bigger than last page#{}", pageNumber, lastPageNumber);
-                        writer.error(String.format("%s:%d", hotelId, pageNumber));
-
-                        return false;
-                    }
-                }
-                else {
-                    //  page#1 is last page.
-                    scrapSpecifiedPage(searchURL, 1, sleepMillis);
-                }
-            }
-
-            //  Log
-            log.warn("Seems to be some error on navigation elements.");
-
+        if (StringUtils.isNotEmpty(redirectURL)) {
+            scrap(ScrapType.SCRAP_THE_ONLY_SPECIFIED_PAGE, redirectURL, pageNumber, sleepMillis);
         }
         else {
             //  Log
-            log.warn("There aren't pagination element ...");
+            log.error("Can not redirect to the speified page (hotel-id : {}, page# : {}).", hotelId, pageNumber);
+
+            writer.error(String.format("#recover[failed] -> %s:%d", hotelId, pageNumber));
+        }
+    }
+
+    public void scrapFrom(String searchURL, int pageNumber, long sleepMillis) throws Exception {
+        super.scrap(searchURL, getDefaultSleepMillis());
+
+        WebDriver webDriver = getDriver();
+        JavascriptExecutor js = (JavascriptExecutor)webDriver;
+
+        setCheckInOut();
+
+        if (loadAllPageContent()) {
+            //  Log
+            log.debug("Loading all content of page is done ...");
         }
 
-        writer.error(String.format("%s:%d", hotelId, pageNumber));
-        return false;
+        currentPage = 1;
+
+        //  '리뷰 페이지'로 이동
+        if (goToReview()) {
+            //  '모든 언어'로 설정
+            if (!setLocalType()) {
+                //  Log
+                log.error("Setting locale failed ... ");
+            }
+        }
+
+        goToReview();
+
+        String redirectURL = getRedirectURL(searchURL, pageNumber);
+
+        if (StringUtils.isNotEmpty(redirectURL)) {
+            scrap(ScrapType.SCRAP_FROM_PAGE, redirectURL, pageNumber, sleepMillis);
+        }
+        else {
+            //  Log
+            log.error("Can not redirect to the speified page (hotel-id : {}, page# : {}).", hotelId, pageNumber);
+
+            writer.error(String.format("#recover[failed] -> %s:%d", hotelId, pageNumber));
+        }
     }
 
     /**
@@ -526,6 +400,12 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
                 return redirectURL;
             }
+
+            //  Log
+            log.warn("can't find 'last' page number element.");
+        }
+        else {
+            log.warn("There aren't pagination element.");
         }
 
         return StringUtils.EMPTY;
@@ -585,8 +465,6 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
                                     if (Objects.nonNull(writer)) {
                                         log.debug("Saving 'tooltip' HTML ... result : {}", writer.write(new String[]{targetHierarchy[0], targetHierarchy[1], "tooltip"}, String.format("%s.html", reviewId), "<html>" + tooltipHTML + "</html>"));
-
-                                        break;
                                     }
                                 }
 
@@ -619,7 +497,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
                 //  MAX_TRY 시도 이내에 툴팁을 스크랩하지 못 한 경우, 재수집을 위한 실패로 간주.
                 if ((index + 1) == MAX_TRY) {
-                    result = false;
+                    return false;
                 }
             }   //  retry block
         }

@@ -54,7 +54,10 @@ import java.util.*;
 @Log4j2
 public class MainApp {
     @Getter
-    public static final String UserHomePath = "/Users/sogiro";
+    public static final String UserHomePath = "/Users/myungjoonlee";
+    @Getter
+    public static final String ChromeDriverPath = UserHomePath + "/Desktop/Selenium-grid/chromedriver";
+
     static final String ROOT_DIR_BOOKING = UserHomePath + "/Developer/Booking.com";
     static final String ROOT_DIR_EXPEDIA = UserHomePath + "/Developer/Expedia.com";
     static final String ROOT_DIR_AGODA = UserHomePath + "/Desktop/Agoda.com";
@@ -322,7 +325,7 @@ public class MainApp {
             int offset = 0;
             String requestURL = getBookingSeoulURL(rows, offset);
 
-            System.setProperty("webdriver.chrome.driver", "/Users/sogiro/IdeaProjects/chromedriver");
+            System.setProperty("webdriver.chrome.driver", getChromeDriverPath());
             WebDriver driver = new ChromeDriver();
             driver.get(requestURL);
 
@@ -1080,7 +1083,7 @@ public class MainApp {
     }
 
     public static void main(String[] args) {
-//        System.setProperty("webdriver.chrome.driver", getUserHomePath() + "/Desktop/Selenium-grid/chromedriver");
+//        System.setProperty("webdriver.chrome.driver", getChromeDriverPath());
 
 //        scrapHotelsCom();
 //        scrapBookingCom();
@@ -1368,6 +1371,9 @@ public class MainApp {
             {
                 BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews/error.txt"));
                 while (Objects.nonNull(line = reader.readLine())) {
+                    // check comment line
+                    if (line.trim().startsWith("#")) { continue; }
+
                     String[] tokens = line.split(":", 3);
                     errorPages.put(tokens[0], Integer.parseInt(tokens[1]));
                     if (tokens.length > 2) {
@@ -1390,11 +1396,25 @@ public class MainApp {
                         String searchURL = hotelInfos.get(hotekId);
                         String errorType = errorTypes.get(hotekId);
                         int pageNumber = errorPages.get(hotekId);
-                        TripAdvisorReviewScraper.ScrapType scrapType = TripAdvisorReviewScraper.ScrapType.SCRAP_THE_SEPCIFIED_PAGE;
+
+                        if (Objects.nonNull(errorType)) {
+                            log.debug("error type : {}", errorType);
+
+                            if (errorType.equals("r")) {
+                                log.debug("scrap from page# : {}", pageNumber);
+                            }
+
+                            //  일단, 패스
+                            //  테스트 이후,
+                            continue;
+                        }
+
 
                         log.debug("hotel-id : {}, type : {}, page# : {}, url : {}", hotekId, errorType, pageNumber, searchURL);
+                        
                         scraper.setHotelId(hotekId);
-                        scraper.scrap(scrapType, searchURL, pageNumber, 3000);
+                        scraper.setWriter(writer);
+                        scraper.scrapOnly(searchURL, pageNumber, 3L * DateUtils.MILLIS_PER_SECOND);
                     }
 
                     webDriver.quit();
