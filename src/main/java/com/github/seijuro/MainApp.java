@@ -1365,48 +1365,48 @@ public class MainApp {
             }
 
 
-            {
-                BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews/error.txt"));
-                while (Objects.nonNull(line = reader.readLine())) {
-                    String[] tokens = line.split(":", 3);
-                    errorPages.put(tokens[0], Integer.parseInt(tokens[1]));
-                    if (tokens.length > 2) {
-                        errorTypes.put(tokens[0], tokens[2]);
-                    }
-                }
-
-                reader.close();
-
-                WebDriver webDriver = null;
-
-                try {
-                    Capabilities capabilities = DesiredCapabilities.chrome();
-                    webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
-
-                    TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
-                    BasicHTMLFileWriter writer = new BasicHTMLFileWriter(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
-
-                    for (String hotekId : errorPages.keySet()) {
-                        String searchURL = hotelInfos.get(hotekId);
-                        String errorType = errorTypes.get(hotekId);
-                        int pageNumber = errorPages.get(hotekId);
-                        TripAdvisorReviewScraper.ScrapType scrapType = TripAdvisorReviewScraper.ScrapType.SCRAP_THE_SEPCIFIED_PAGE;
-
-                        log.debug("hotel-id : {}, type : {}, page# : {}, url : {}", hotekId, errorType, pageNumber, searchURL);
-                        scraper.setHotelId(hotekId);
-                        scraper.scrap(scrapType, searchURL, pageNumber, 3000);
-                    }
-
-                    webDriver.quit();
-                }
-                catch (Exception excp) {
-                    excp.printStackTrace();
-                }
-
-                if (Objects.nonNull(webDriver)) {
-                    webDriver.quit();
-                }
-            }
+//            {
+//                BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews/error.txt"));
+//                while (Objects.nonNull(line = reader.readLine())) {
+//                    String[] tokens = line.split(":", 3);
+//                    errorPages.put(tokens[0], Integer.parseInt(tokens[1]));
+//                    if (tokens.length > 2) {
+//                        errorTypes.put(tokens[0], tokens[2]);
+//                    }
+//                }
+//
+//                reader.close();
+//
+//                WebDriver webDriver = null;
+//
+//                try {
+//                    Capabilities capabilities = DesiredCapabilities.chrome();
+//                    webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
+//
+//                    TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
+//                    BasicHTMLFileWriter writer = new BasicHTMLFileWriter(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
+//
+//                    for (String hotekId : errorPages.keySet()) {
+//                        String searchURL = hotelInfos.get(hotekId);
+//                        String errorType = errorTypes.get(hotekId);
+//                        int pageNumber = errorPages.get(hotekId);
+//                        TripAdvisorReviewScraper.ScrapType scrapType = TripAdvisorReviewScraper.ScrapType.SCRAP_THE_SEPCIFIED_PAGE;
+//
+//                        log.debug("hotel-id : {}, type : {}, page# : {}, url : {}", hotekId, errorType, pageNumber, searchURL);
+//                        scraper.setHotelId(hotekId);
+//                        scraper.scrap(scrapType, searchURL, pageNumber, 3000);
+//                    }
+//
+//                    webDriver.quit();
+//                }
+//                catch (Exception excp) {
+//                    excp.printStackTrace();
+//                }
+//
+//                if (Objects.nonNull(webDriver)) {
+//                    webDriver.quit();
+//                }
+//            }
         }
         catch (Exception excp) {
             excp.printStackTrace();
