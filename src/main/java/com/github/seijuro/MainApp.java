@@ -1167,6 +1167,9 @@ public class MainApp {
 
                                 log.debug("hotel-id : {}, page# : {}, url : {}", hotelId, pageNumber, searchURL);
 
+                                scraper.setHotelId(hotelId);
+                                scraper.setWriter(writer);
+
                                 if (tokens.length > 2) {
                                     log.debug("error type : {}", tokens[2]);
 
@@ -1174,12 +1177,11 @@ public class MainApp {
                                         log.debug("scrap from page# : {}", pageNumber);
                                     }
 
+
                                     scraper.scrapFrom(searchURL, pageNumber, 3* DateUtils.MILLIS_PER_SECOND);
                                     continue;
                                 }
 
-                                scraper.setHotelId(hotelId);
-                                scraper.setWriter(writer);
                                 scraper.scrapOnly(searchURL, pageNumber, 3L * DateUtils.MILLIS_PER_SECOND);
                             }
                         } while (true);
@@ -1495,7 +1497,7 @@ public class MainApp {
 
 //        summaryHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
 //        scrapTripAdvisorReviews(3);
-        recoverErrorTripAdvisorReviews(3);
+        recoverErrorTripAdvisorReviews(4);
 
 
         /**
@@ -1750,7 +1752,7 @@ public class MainApp {
 
                             if (tooltipPageSourceCount != 5) {
                                 fwriter.write(String.format("# The number of HTML page source files (%d) is lower than 5 (expacted).%s", tooltipPageSourceCount, System.lineSeparator()));
-                                fwriter.write(String.format("%s:%s%s", hotelDir.getName(), pageDir.getName(), System.lineSeparator()));
+                                fwriter.write(String.format("%s:%d%s", hotelDir.getName(), Integer.parseInt(pageDir.getName()), System.lineSeparator()));
                             }
                         }
 
