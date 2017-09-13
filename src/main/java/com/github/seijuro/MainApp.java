@@ -54,7 +54,7 @@ import java.util.*;
 @Log4j2
 public class MainApp {
     @Getter
-    public static final String UserHomePath = "/Users/myungjoonlee";
+    public static final String UserHomePath = "/Users/sogiro";
     @Getter
     public static final String ChromeDriverPath = UserHomePath + "/Desktop/Selenium-grid/chromedriver";
 
@@ -1144,9 +1144,7 @@ public class MainApp {
                         webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
 
                         TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
-                        BasicHTMLFileWriter writer = new BasicHTMLFileWriter(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
-
-                        LinkedHashMap<String, Integer> hotelIdsToRecover = new LinkedHashMap<>();
+                        BasicHTMLFileWriter writer = new BasicHTMLFileWriter(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews-recover");
 
                         String errorLog = null;
 
@@ -1161,13 +1159,16 @@ public class MainApp {
                             }
 
                             if (StringUtils.isNotEmpty(errorLog)) {
-                                String[] tokens = errorLog.split(":");
+                                String[] tokens = errorLog.split(":", 3);
 
                                 String hotelId = StringUtils.stripToEmpty(tokens[0]);
                                 String searchURL = hotelInfos.get(hotelId);
                                 int pageNumber = Integer.parseInt(StringUtils.stripToEmpty(tokens[1]));
 
                                 log.debug("hotel-id : {}, page# : {}, url : {}", hotelId, pageNumber, searchURL);
+
+                                scraper.setHotelId(hotelId);
+                                scraper.setWriter(writer);
 
                                 if (tokens.length > 2) {
                                     log.debug("error type : {}", tokens[2]);
@@ -1176,13 +1177,11 @@ public class MainApp {
                                         log.debug("scrap from page# : {}", pageNumber);
                                     }
 
-                                    //  일단, 패스
-                                    //  테스트 이후,
+
+                                    scraper.scrapFrom(searchURL, pageNumber, 3* DateUtils.MILLIS_PER_SECOND);
                                     continue;
                                 }
 
-                                scraper.setHotelId(hotelId);
-                                scraper.setWriter(writer);
                                 scraper.scrapOnly(searchURL, pageNumber, 3L * DateUtils.MILLIS_PER_SECOND);
                             }
                         } while (true);
@@ -1224,7 +1223,7 @@ public class MainApp {
             }
 
             {
-                BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews/error.txt"));
+                BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/error.txt"));
                 while (Objects.nonNull(line = reader.readLine())) {
                     // check comment line
                     if (line.trim().startsWith("#")) { continue; }
@@ -1270,7 +1269,7 @@ public class MainApp {
             }
 
             Iterator<String> hotelInfoIterator = hotelInfos.keySet().iterator();
-            List<Thread> threads = createTripAdvisorReviewScraperThread(4, hotelInfos, hotelInfoIterator);
+            List<Thread> threads = createTripAdvisorReviewScraperThread(maxThread, hotelInfos, hotelInfoIterator);
 
             //  threads start
             for (Thread thread : threads) {
@@ -1496,8 +1495,8 @@ public class MainApp {
 //        extractTripAdvisorHotelReviewURL();
 
 
-
-        scrapTripAdvisorReviews(4);
+//        summaryHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
+//        scrapTripAdvisorReviews(3);
         recoverErrorTripAdvisorReviews(4);
 
 
@@ -1694,6 +1693,88 @@ public class MainApp {
 //        catch (Exception excp) {
 //            excp.printStackTrace();
 //        }
+    }
+
+
+    private static void summaryHotelReviews(String hotelReviewsPath) {
+        try {
+            FileWriter fwriter = new FileWriter(getUserHomePath() + "/Desktop/TripAdvisor.com/summary.txt", false);
+
+            File rootpath = new File(hotelReviewsPath);
+            for (File hotelDir : rootpath.listFiles()) {
+                if (hotelDir.isDirectory()) {
+                    String hotelId = hotelDir.getName();
+                    //  Log
+                    log.debug("hotel-id : {}", hotelId);
+
+                    int maxPageNo = 0;
+                    List<Integer> listOfPages = new ArrayList<>();
+
+                    for (File pageDir : hotelDir.listFiles()) {
+                        StringBuffer pageLogBuffer = new StringBuffer();
+                        int pageSourceCount = 0;
+                        int tooltipPageSourceCount = 0;
+
+                        if (pageDir.isDirectory()) {
+                            String pageNumber = pageDir.getName();
+
+                            //  Log
+                            if (maxPageNo < Integer.parseInt(pageNumber)) {
+                                maxPageNo = Integer.parseInt(pageNumber);
+                            }
+
+                            listOfPages.add(Integer.parseInt(pageNumber));
+
+                            for (File scrapFile : pageDir.listFiles()) {
+                                StringBuffer sbFiles = new StringBuffer();
+
+                                if (scrapFile.isDirectory() &&
+                                        scrapFile.getName().equals("tooltip")) {
+                                    for (File profileFile : scrapFile.listFiles()) {
+                                        if (!profileFile.isHidden() &&
+                                                profileFile.getName().endsWith(".html")) {
+                                            ++tooltipPageSourceCount;
+                                        }
+                                    }
+                                }
+                                else {
+                                    if (!scrapFile.isHidden() &&
+                                            scrapFile.getName().endsWith(".html")) {
+                                        ++pageSourceCount;
+                                    }
+                                }
+                            }
+
+                            if (pageSourceCount < 1) {
+                                fwriter.write(String.format("# HTML page source doesn't exists.%s", System.lineSeparator()));
+                                fwriter.write(String.format("%s:%d%s", hotelDir.getName(), Integer.parseInt(pageDir.getName()), System.lineSeparator()));
+                            }
+
+                            if (tooltipPageSourceCount != 5) {
+                                fwriter.write(String.format("# The number of HTML page source files (%d) is lower than 5 (expacted).%s", tooltipPageSourceCount, System.lineSeparator()));
+                                fwriter.write(String.format("%s:%d%s", hotelDir.getName(), Integer.parseInt(pageDir.getName()), System.lineSeparator()));
+                            }
+                        }
+
+                        fwriter.flush();
+                    }
+
+                    if (maxPageNo > listOfPages.size()) {
+                        for (int index = 0; index < maxPageNo; ++index) {
+                            if (!listOfPages.contains(Integer.valueOf(index + 1))) {
+                                fwriter.write(String.format("# page directory doesn't exists.%s", System.lineSeparator()));
+                                fwriter.write(String.format("%s:%s%s", hotelDir.getName(), index + 1, System.lineSeparator()));
+                            }
+                        }
+                    }
+                }
+            }
+
+            fwriter.close();
+        }
+        catch (IOException excp) {
+            excp.printStackTrace();
+        }
     }
 }
 
