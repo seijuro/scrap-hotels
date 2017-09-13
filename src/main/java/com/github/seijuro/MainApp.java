@@ -1270,7 +1270,7 @@ public class MainApp {
             }
 
             Iterator<String> hotelInfoIterator = hotelInfos.keySet().iterator();
-            List<Thread> threads = createTripAdvisorReviewScraperThread();
+            List<Thread> threads = createTripAdvisorReviewScraperThread(4, hotelInfos, hotelInfoIterator);
 
             //  threads start
             for (Thread thread : threads) {
