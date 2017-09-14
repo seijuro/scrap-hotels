@@ -1238,7 +1238,7 @@ public class MainApp {
 
             //  load hotel-ids
             {
-                BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/TripAdvisorLinkURL.txt"));
+                BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/TripAdvisorLinkURL(1).txt"));
                 while (Objects.nonNull(line = reader.readLine())) {
                     String[] tokens = line.split(":", 2);
                     hotelInfos.put(tokens[0].trim(), tokens[1].trim());
@@ -1582,12 +1582,12 @@ public class MainApp {
          *
          * site : TripAdvisor.com
          */
-        extractTripAdvisorHotelReviewURL();
+//        extractTripAdvisorHotelReviewURL();
 
 //        recoverErrorTripAdvisorReviews(4);
 
 //        summaryHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
-        scrapTripAdvisorReviews(6);
+        scrapTripAdvisorReviews(5);
 //        recoverErrorTripAdvisorReviews(4);
 
 
