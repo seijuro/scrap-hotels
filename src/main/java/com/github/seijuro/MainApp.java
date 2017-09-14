@@ -59,7 +59,7 @@ import java.util.*;
 @Log4j2
 public class MainApp {
     @Getter
-    public static final String UserHomePath = "/Users/myungjoonlee";
+    public static final String UserHomePath = "/Users/konan";
     @Getter
     public static final String ChromeDriverPath = UserHomePath + "/Desktop/Selenium-grid/chromedriver";
 
@@ -1049,15 +1049,28 @@ public class MainApp {
             Connection connection = DriverManager.getConnection(connectionString.toConnectionString(), connectionString.getUser(), connectionString.getPassword());
             connection.setAutoCommit(false);
 
+            String line;
+            BufferedReader br = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/hotel_id.txt"));
+            List<String> hotelIds = new ArrayList<>();
+
+            while (Objects.nonNull((line = br.readLine()))) {
+                hotelIds.add(line.trim());
+            }
+
+            br.close();
+
             Statement stmt = connection.createStatement();
 
-            ResultSet rs = stmt.executeQuery("SELECT id, linkURL FROM TripAdvisor_URL GROUP BY id");
+            //  SELECT id, linkURL FROM TripAdvisor_URL GROUP BY id;
+            ResultSet rs = stmt.executeQuery(" SELECT id, linkURL FROM TripAdvisor_URL GROUP BY id");
 
             while (rs.next()) {
                 String hotelId = rs.getString(1);
                 String linkURL = rs.getString(2);
 
-                fileWriter.write(String.format("%s:https://%s%s", hotelId, linkURL, System.lineSeparator()));
+                if (!hotelIds.contains(hotelId)) {
+                    fileWriter.write(String.format("%s:https://%s%s", hotelId, linkURL, System.lineSeparator()));
+                }
             }
 
             rs.close();
@@ -1582,12 +1595,12 @@ public class MainApp {
          *
          * site : TripAdvisor.com
          */
-        extractTripAdvisorHotelReviewURL();
+//        extractTripAdvisorHotelReviewURL();
 
 //        recoverErrorTripAdvisorReviews(4);
 
 //        summaryHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
-        scrapTripAdvisorReviews(6);
+        scrapTripAdvisorReviews(4);
 //        recoverErrorTripAdvisorReviews(4);
 
 
