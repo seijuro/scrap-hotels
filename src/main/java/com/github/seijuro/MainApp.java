@@ -58,6 +58,8 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Log4j2
 public class MainApp {
@@ -88,6 +90,162 @@ public class MainApp {
     public static final String BaseURL_HotelsCom = "https://kr.hotels.com/search/listings.json";
     @Getter
     public static final String BaseURL_BookingCom = "https://www.booking.com/searchresults.ko.html";
+
+
+
+    public enum Argument {
+        NONE(""),
+        SITE("--site"),
+        HOME_DIR("--homedir"),
+        OPRERATOR("--operator"),
+        OPERAND("--operand");
+
+        private final String text;
+
+        Argument(String text) {
+            this.text = text;
+        }
+
+        public String toText() {
+            return text;
+        }
+    }
+
+    public enum SiteType {
+        TRIPADVISOR("tripadvisor"),
+        EXPEDIA("expedia"),
+        AGODA("agoda"),
+        BOOKING("booking"),
+        HOTELS("hotels");
+
+        private final String type;
+
+        SiteType(String type) {
+            this.type = type;
+        }
+
+        public String toText() {
+            return type;
+        }
+    }
+
+    public enum Operation {
+        SCRAP("scrap"),
+        RECOVER("recover"),
+        INSPECT("inspect");
+
+        private final String text;
+
+        Operation(String operation) {
+            this.text = operation;
+        }
+
+        public String toText() {
+            return text;
+        }
+    }
+
+    public interface Operand {
+        public abstract String toText();
+    }
+
+    public enum TripAdvisorScrapOperand implements Operand {
+        SEARCH("search"),
+        REVIEWS("review");
+
+        private final String text;
+
+        TripAdvisorScrapOperand(String text) {
+            this.text = text;
+        }
+
+        public String toText() {
+            return text;
+        }
+    }
+
+    public enum TripAdvisorRecoverOperand implements Operand {
+        PAGES("tooltip"),
+        TOOLTIPS("page");;
+
+        private final String text;
+
+        TripAdvisorRecoverOperand(String text) {
+            this.text = text;
+        }
+
+        public String toText() {
+            return text;
+        }
+    }
+
+    public static void printUsage(Argument argument) {
+        // log
+        System.out.println("Not implemented yet.");
+    }
+
+
+    @Setter
+    private static SiteType siteType = null;
+    @Setter
+    private static Operation operation = null;
+    @Setter
+    private static Operand operand = null;
+
+    /**
+     * Check if VM option for site user entered is properly set.
+     * If it was, return true. Otherwise, return false.
+     *
+     * @return
+     */
+    public static boolean checkSiteTypeVMOptions() {
+        if (siteType == SiteType.TRIPADVISOR) {
+            if (StringUtils.isEmpty((TripAdvisorHome = System.getProperty(getTripAdvisorHomeProperty())))) {
+                //  Log
+                log.error("property({}) isn't set.", getTripAdvisorHomeProperty());
+                return false;
+            }
+        }
+        else if (siteType == SiteType.EXPEDIA) {
+            if (StringUtils.isEmpty((ExpediaHome = System.getProperty(getExpediaHomeProerty())))) {
+                //  Log
+                log.error("property({}) isn't set.", getExpediaHomeProerty());
+                return false;
+            }
+        }
+        else if (siteType == SiteType.AGODA) {
+            if (StringUtils.isEmpty((AgodaHome = System.getProperty(getAgodaHomeProerty())))) {
+                //  Log
+                log.error("property({}) isn't set.", getAgodaHomeProerty());
+                return false;
+            }
+        }
+        else if (siteType == SiteType.BOOKING) {
+            if (StringUtils.isEmpty((BookingHome = System.getProperty(getBookingHomeProerty())))) {
+                //  Log
+                log.error("property({}) isn't set.", getBookingHomeProerty());
+                return false;
+            }
+        }
+        else if (siteType == SiteType.HOTELS) {
+            if (StringUtils.isEmpty((HotelsHome = System.getProperty(getHotelsHomeProerty())))) {
+                //  Log
+                log.error("property({}) isn't set.", getHotelsHomeProerty());
+                return false;
+            }
+        }
+        else {
+            log.error("site({}) isn't avaiable.", Objects.nonNull(siteType) ? siteType.toText() : "");
+
+            return false;
+        }
+
+        return true;
+    }
+
+
+
+
 
     public static Sort[] getSortOrders_HotelsCom() {
         Sort[] sortOrders = new Sort[] {
@@ -1252,8 +1410,15 @@ public class MainApp {
         return threads;
     }
 
-
-    private static void recoverErrorTripAdvisorReviews(int maxThread) {
+    /**
+     * By calling this method, <code>recoverErrorTripAdvisorReviews</code>, you can easily recover the error occured during scraping the reviews, hotel descriptions, reviews profile, from TripAdvisor.
+     * It will determind which page should be scrap depends on the file, errors.txt on TripAdvisor home(working) directory.
+     * The file, errors.txt, would be generated if error occured in home/working directory during scraping reviews, and etc ...
+     * In other case, by calling inspect method, you can generate the log file which can be used by recover.
+     *
+     * @param maxThread
+     */
+    private static void recoverErrorTripAdvisorReviews(ExecutorService excutors, int maxThread) {
         try {
             final LinkedHashMap<String, String> hotelInfos = new LinkedHashMap<>();
             final List<String> errorLogs = new ArrayList<>();
@@ -1289,12 +1454,16 @@ public class MainApp {
 
             List<Thread> threads = createRecoverTripAdvisorReviewThread(maxThread, hotelInfos, iterErrorLogs);
 
+            //  threads start
             for (Thread thread : threads) {
-                thread.start();
-            }
+                if (Objects.nonNull(excutors)) {
+                    excutors.execute(thread);
+                }
+                else {
+                    thread.start();
+                }
 
-            for (Thread thread : threads) {
-                thread.join();
+                Thread.sleep(1000L);
             }
         }
         catch (Exception excp) {
@@ -1302,8 +1471,14 @@ public class MainApp {
         }
     }
 
-
-    private static void scrapTripAdvisorReviews(int maxThread) {
+    /**
+     * scrap hotel description, reviews, reviewer profile information in 'TripAdvisor'.
+     * This method need the file containing 'hotelid:linkRL'.
+     * If there weren't linkURL file, you must take a step for scraping hotel id(s) & urls.
+     *
+     * @param maxThread
+     */
+    private static void scrapTripAdvisorReviews(ExecutorService excutors, int maxThread) {
         try {
             final LinkedHashMap<String, String> hotelInfos = new LinkedHashMap<>();
 
@@ -1327,13 +1502,14 @@ public class MainApp {
 
             //  threads start
             for (Thread thread : threads) {
-                thread.start();
+                if (Objects.nonNull(excutors)) {
+                    excutors.execute(thread);
+                }
+                else {
+                    thread.start();
+                }
 
                 Thread.sleep(1000L);
-            }
-
-            for (Thread thread : threads) {
-                thread.join();
             }
         }
         catch (Exception excp) {
@@ -1428,106 +1604,6 @@ public class MainApp {
         }
     }
 
-
-
-    public enum Argument {
-        NONE(""),
-        SITE("--site"),
-        HOME_DIR("--homedir"),
-        OPRERATOR("--operator"),
-        OPERAND("--operand");
-
-        private final String text;
-
-        Argument(String text) {
-            this.text = text;
-        }
-
-        public String toText() {
-            return text;
-        }
-    }
-
-    public enum SiteType {
-        TRIPADVISOR("tripadvisor"),
-        EXPEDIA("expedia"),
-        AGODA("agoda"),
-        BOOKING("booking"),
-        HOTELS("hotels");
-
-        private final String type;
-
-        SiteType(String type) {
-            this.type = type;
-        }
-
-        public String toText() {
-            return type;
-        }
-    }
-
-    public enum Operation {
-        SCRAP("scrap"),
-        RECOVER("recover"),
-        INSPECT("inspect");
-
-        private final String text;
-
-        Operation(String operation) {
-            this.text = operation;
-        }
-
-        public String toText() {
-            return text;
-        }
-    }
-
-    public interface Operand {
-        public abstract String toText();
-    }
-
-    public enum TripAdvisorScrapOperand implements Operand {
-        SEARCH("search"),
-        REVIEWS("review");
-
-        private final String text;
-
-        TripAdvisorScrapOperand(String text) {
-            this.text = text;
-        }
-
-        public String toText() {
-            return text;
-        }
-    }
-
-    public enum TripAdvisorRecoverOperand implements Operand {
-        PAGES("tooltip"),
-        TOOLTIPS("page");;
-
-        private final String text;
-
-        TripAdvisorRecoverOperand(String text) {
-            this.text = text;
-        }
-
-        public String toText() {
-            return text;
-        }
-    }
-
-    public static void printUsage(Argument argument) {
-        // log
-        System.out.println("Not implemented yet.");
-    }
-
-
-    @Setter
-    private static SiteType siteType = null;
-    @Setter
-    private static Operation operation = null;
-    @Setter
-    private static Operand operand = null;
 
     public static void main(String[] args) {
         if (args.length < 1) {
@@ -1670,7 +1746,6 @@ public class MainApp {
 //                        File.separator));
 
 
-        //  default
         if (StringUtils.isEmpty(System.getProperty(getChromeWebDriverProerty()))) {
             //  Log
             log.error("property({}) isn't set.", getChromeWebDriverProerty());
@@ -1678,44 +1753,7 @@ public class MainApp {
             return;
         }
 
-        if (siteType == SiteType.TRIPADVISOR) {
-            if (StringUtils.isEmpty((TripAdvisorHome = System.getProperty(getTripAdvisorHomeProperty())))) {
-                //  Log
-                log.error("property({}) isn't set.", getTripAdvisorHomeProperty());
-                return;
-            }
-        }
-        else if (siteType == SiteType.EXPEDIA) {
-            if (StringUtils.isEmpty((ExpediaHome = System.getProperty(getExpediaHomeProerty())))) {
-                //  Log
-                log.error("property({}) isn't set.", getExpediaHomeProerty());
-                return;
-            }
-        }
-        else if (siteType == SiteType.AGODA) {
-            if (StringUtils.isEmpty((AgodaHome = System.getProperty(getAgodaHomeProerty())))) {
-                //  Log
-                log.error("property({}) isn't set.", getAgodaHomeProerty());
-                return;
-            }
-        }
-        else if (siteType == SiteType.BOOKING) {
-            if (StringUtils.isEmpty((BookingHome = System.getProperty(getBookingHomeProerty())))) {
-                //  Log
-                log.error("property({}) isn't set.", getBookingHomeProerty());
-                return;
-            }
-        }
-        else if (siteType == SiteType.HOTELS) {
-            if (StringUtils.isEmpty((HotelsHome = System.getProperty(getHotelsHomeProerty())))) {
-                //  Log
-                log.error("property({}) isn't set.", getHotelsHomeProerty());
-                return;
-            }
-        }
-        else {
-            log.error("site({}) isn't avaiable.", Objects.nonNull(siteType) ? siteType.toText() : "");
-
+        if (!checkSiteTypeVMOptions()) {
             return;
         }
 
@@ -1921,10 +1959,29 @@ public class MainApp {
          */
 //        extractTripAdvisorHotelReviewURL();
 
-        recoverErrorTripAdvisorReviews(6);
-        scrapTripAdvisorReviews(6);
+        ExecutorService excutors = Executors.newFixedThreadPool(6);
+
+        recoverErrorTripAdvisorReviews(excutors, 2);
+        scrapTripAdvisorReviews(excutors, 6);
 //        summaryTripAdvisorHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
 
+//        try {
+//            MySQLConnectionString connectionString = getMySQLConnectionString();
+//            Class.forName("com.mysql.jdbc.Driver");
+//            Connection connection = DriverManager.getConnection(connectionString.toConnectionString(), connectionString.getUser(), connectionString.getPassword());
+//            connection.setAutoCommit(false);
+//
+//            TripAdvisorReviewerProfileWriter writer = new TripAdvisorReviewerProfileWriter(connection);
+//            String path = String.format("%s%s%s%s%s%s%s", getUserHomePath(), File.separator, "Desktop", File.separator, "TripAdvisor.com", File.separator, "Reviews");
+//            File root = new File(path);
+//
+//            parseTripAdvisorReviewerProfile(writer, root.listFiles());
+//
+//            connection.close();
+//        }
+//        catch (Exception excp) {
+//            excp.printStackTrace();
+//        }
 
         /**
          * site : Agoda.com

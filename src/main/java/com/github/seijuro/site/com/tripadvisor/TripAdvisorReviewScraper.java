@@ -13,7 +13,6 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.interactions.Actions;
 
-import java.io.File;
 import java.util.*;
 
 @Log4j2
@@ -186,6 +185,8 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
         WebDriver webDriver = getDriver();
         JavascriptExecutor js = (JavascriptExecutor)webDriver;
+
+        didMakeTranslationDisabled = false;
 
         setCheckInOut();
 
