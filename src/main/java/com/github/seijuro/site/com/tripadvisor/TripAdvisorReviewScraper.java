@@ -186,6 +186,8 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         WebDriver webDriver = getDriver();
         JavascriptExecutor js = (JavascriptExecutor)webDriver;
 
+        didMakeTranslationDisabled = false;
+
         setCheckInOut();
 
         if (loadAllPageContent()) {
