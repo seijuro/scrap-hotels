@@ -18,7 +18,7 @@ import java.util.*;
 @Log4j2
 public class TripAdvisorReviewScraper extends AbstractScraper {
     @Getter
-    public static final long DefaultSleepMillis = 5L * DateUtils.MILLIS_PER_SECOND;
+    public static final long DefaultSleepMillis = 7L * DateUtils.MILLIS_PER_SECOND;
 
     public static final long WAIT_MILLIS_1_SECOND = 1000L;
     public static final long WAIT_MILLIS_1_5_SECOND = 1500L;
@@ -645,44 +645,30 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                 }
             }
 
-            for (int index = 0; index < MAX_TRY; ++index) {
-                try {
-                    WebElement reviewSelector = reviewsElement.findElement(By.id(reviewSelectorId));
-                    List<WebElement> uiColumnGroupElements = reviewSelector.findElements(By.cssSelector("div.review.hsx_review.ui_columns"));
-                    if (uiColumnGroupElements.size() > 0) {
+            try {
+                WebElement reviewSelector = reviewsElement.findElement(By.id(reviewSelectorId));
+                List<WebElement> uiColumnGroupElements = reviewSelector.findElements(By.cssSelector("div.review.hsx_review.ui_columns"));
+                if (uiColumnGroupElements.size() > 0) {
 
-                        List<WebElement> uiColumnElements = uiColumnGroupElements.get(0).findElements(By.cssSelector("div.ui_column"));
-                        WebElement reviewInfoColumn = uiColumnElements.get(1);
+                    List<WebElement> uiColumnElements = uiColumnGroupElements.get(0).findElements(By.cssSelector("div.ui_column"));
+                    WebElement reviewInfoColumn = uiColumnElements.get(1);
 
-                        //  '더 보기 버튼이 있는 경우
-                        List<WebElement> moreButtonElements = reviewInfoColumn.findElements(By.cssSelector("span.taLnk.ulBlueLinks"));
-                        if (moreButtonElements.size() > 0 &&
-                                moreButtonElements.get(0).getText().contains("보기")) {
+                    //  '더 보기 버튼이 있는 경우
+                    List<WebElement> moreButtonElements = reviewInfoColumn.findElements(By.cssSelector("span.taLnk.ulBlueLinks"));
+                    if (moreButtonElements.size() > 0 &&
+                            moreButtonElements.get(0).getText().contains("보기")) {
 
-                            log.debug("Click 'More' button & wait for loading : {} ms", sleepMillis);
-                            moreButtonElements.get(0).click();
-                            //  Wait for realoding reviews
-                            Thread.sleep(WAIT_MILLIS_4_SECOND);
+                        log.debug("Click 'More' button & wait for loading : {} ms", sleepMillis);
+                        moreButtonElements.get(0).click();
+                        //  Wait for realoding reviews
+                        Thread.sleep(WAIT_MILLIS_4_SECOND);
 
-                            return true;
-                        }
-                        //  '더 보기' 버튼이 없는 경우
-                        else {
-                            scrollY = reviewSelector.getSize().getHeight();
-                            break;
-                        }
+                        return true;
                     }
                 }
-                catch (Exception excp) {
-                    log.error("Checking translation & see more button failed");
-                }
-
-                if ((index + 1) == MAX_TRY) {
-                    throw new Exception("Failed to check if the button 'see more' exists.");
-                }
-
-                //  로딩 자체가 덜 되어서 엘러멘트 생성이 안 된 경우.
-                Thread.sleep(1L * DateUtils.MILLIS_PER_SECOND);
+            }
+            catch (Exception excp) {
+                log.error("Checking translation & see more button failed");
             }
         }
 

@@ -1463,7 +1463,7 @@ public class MainApp {
                     thread.start();
                 }
 
-                Thread.sleep(1000L);
+                Thread.sleep(2000L);
             }
         }
         catch (Exception excp) {
@@ -1509,7 +1509,7 @@ public class MainApp {
                     thread.start();
                 }
 
-                Thread.sleep(1000L);
+                Thread.sleep(2000L);
             }
         }
         catch (Exception excp) {
@@ -1746,12 +1746,12 @@ public class MainApp {
 //                        File.separator));
 
 
-        if (StringUtils.isEmpty(System.getProperty(getChromeWebDriverProerty()))) {
-            //  Log
-            log.error("property({}) isn't set.", getChromeWebDriverProerty());
-
-            return;
-        }
+//        if (StringUtils.isEmpty(System.getProperty(getChromeWebDriverProerty()))) {
+//            //  Log
+//            log.error("property({}) isn't set.", getChromeWebDriverProerty());
+//
+//            return;
+//        }
 
         if (!checkSiteTypeVMOptions()) {
             return;
@@ -1959,10 +1959,10 @@ public class MainApp {
          */
 //        extractTripAdvisorHotelReviewURL();
 
-        ExecutorService excutors = Executors.newFixedThreadPool(6);
+        ExecutorService excutors = Executors.newFixedThreadPool(5);
 
-        recoverErrorTripAdvisorReviews(excutors, 2);
-        scrapTripAdvisorReviews(excutors, 6);
+        recoverErrorTripAdvisorReviews(excutors, 5);
+        scrapTripAdvisorReviews(excutors, 5);
 //        summaryTripAdvisorHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
 
 //        try {
