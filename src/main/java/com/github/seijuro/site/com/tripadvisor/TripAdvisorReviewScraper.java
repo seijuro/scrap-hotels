@@ -7,10 +7,7 @@ import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.DateUtils;
-import org.openqa.selenium.By;
-import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
+import org.openqa.selenium.*;
 import org.openqa.selenium.interactions.Actions;
 
 import java.util.*;
@@ -42,7 +39,6 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
     @Setter
     private String hotelId = null;
     private boolean didSetCheckInOut = false;
-    private boolean didMakeTranslationDisabled = false;
     @Setter
     private BasicHTMLFileWriter writer = null;
 
@@ -186,8 +182,6 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         WebDriver webDriver = getDriver();
         JavascriptExecutor js = (JavascriptExecutor)webDriver;
 
-        didMakeTranslationDisabled = false;
-
         setCheckInOut();
 
         if (loadAllPageContent()) {
@@ -227,9 +221,13 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                         //  리뷰가 없는 경우
                         if (reviewSelectorIds.size() == 0) {
                             //  페이지 저장 후 종료
+                            //  Log
+                            log.debug("No review!");
                             saveHTMLPageSource(currentDirHierarchy, String.format("%s.html", pageName));
                             break;
                         }
+
+                        System.out.println("########## 1");
 
                         goToReview();
                         if (disableTranslationIfNot()) {
@@ -237,6 +235,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                             break;
                         }
 
+                        System.out.println("########## 2");
                         goToReview();
                         setSeeMoreIfExist();
 
@@ -272,7 +271,6 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                                 WebElement nextReviewPageLink = getNextReviewPageLinkIfExists();
                                 if (Objects.nonNull(nextReviewPageLink)) {
                                     Thread.sleep(500);
-
                                     nextReviewPageLink.click();
 
                                     hasNextPage = true;
@@ -280,16 +278,18 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
                                     log.debug("Waiting for reloading & scrolling to the top of reviews ...", currentPage, currentPage + 1);
                                     Thread.sleep(WAIT_MILLIS_2_SECOND);
-
-                                    break;
                                 }
+
+                                break;
                             }
                             catch (Exception excp) {
-                                log.error("find & click 'next' button failed : {}", excp.getMessage());
+                                //  Log
+                                log.error("find & click 'next' button if exists failed : {}", excp.getMessage());
                             }
 
                             if ((index + 1) == MAX_TRY) {
-                                if (Objects.nonNull(writer))  { writer.error(String.format("%s:%d:r%s", hotelId, currentPage + 1, System.lineSeparator())); }
+                                if (Objects.nonNull(writer)) {  writer.error(String.format("%s:%s", hotelId, currentPage)); }
+                                break;
                             }
                         }
                     }
@@ -511,7 +511,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                                             log.error("failed to scrap tooltip (reviewer's profile). ");
 
                                             if (Objects.nonNull(writer)) {
-                                                writer.error(String.format("%s:%s%s", hotelId, currentPage, System.lineSeparator()));
+                                                writer.error(String.format("%s:%d:r%s", hotelId, currentPage, System.lineSeparator()));
                                             }
 
                                             throw excp;
@@ -568,12 +568,23 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         WebDriver webDriver = getDriver();
         List<String> reviewSelectorIds = new ArrayList<>();
 
-        WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS"));
-        List<WebElement> reviewSelectorElements = reviewsElement.findElements(By.cssSelector("div.ppr_rup.ppr_priv_location_reviews_list div.review-container div.prw_rup.prw_reviews_basic_review_hsx div.reviewSelector"));
+        WebElement reviewsElement = webDriver.findElement(By.id("REVIEWS"));
+        WebElement reviewList = reviewsElement.findElement(By.id("taplc_location_reviews_list_hotels_0"));
 
-        for (WebElement reviewSelector : reviewSelectorElements) {
-            reviewSelectorIds.add(reviewSelector.getAttribute("id"));
+        List<WebElement> reviewReviewSelectors = reviewList.findElements(By.cssSelector("div.review-container div.prw_rup.prw_reviews_basic_review_hsx div.reviewSelector"));
+
+        Collections.sort(reviewReviewSelectors, new Comparator<WebElement>() {
+            @Override
+            public int compare(WebElement o1, WebElement o2) {
+                return o1.getLocation().getY() - o2.getLocation().getY();
+            }
+        });
+
+        for (WebElement reviewReviewSelector : reviewReviewSelectors) {
+            reviewSelectorIds.add(reviewReviewSelector.getAttribute("id"));
         }
+
+        reviewReviewSelectors.clear();
 
         return reviewSelectorIds;
     }
@@ -586,54 +597,52 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
      * @throws InterruptedException
      */
     private boolean disableTranslationIfNot() throws Exception {
-        if (!didMakeTranslationDisabled) {
-            try {
-                WebDriver webDriver = getDriver();
-                JavascriptExecutor js = (JavascriptExecutor) webDriver;
+        try {
+            WebDriver webDriver = getDriver();
+            JavascriptExecutor js = (JavascriptExecutor) webDriver;
 
-                WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS"));
-                List<WebElement> reviewContainerElements = reviewsElement.findElements(By.cssSelector("div.ppr_rup.ppr_priv_location_reviews_list div.review-container"));
-                int scrollY = 0;
+            WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS"));
+            List<WebElement> reviewContainerElements = reviewsElement.findElements(By.cssSelector("div.ppr_rup.ppr_priv_location_reviews_list div.review-container"));
+            int scrollY = 0;
 
-                //  '번역' 버튼이 있는지 검색
-                for (WebElement reviewContainer : reviewContainerElements) {
-                    if (scrollY > 0) {
-                        log.debug("Scroll to 'current review'  view ...");
-                        for (int i = 0; i < scrollY / 20; i++) {
-                            js.executeScript("window.scrollBy(0,20)", "");
-                        }
+            //  '번역' 버튼이 있는지 검색
+            for (WebElement reviewContainer : reviewContainerElements) {
+                if (scrollY > 0) {
+                    log.debug("Scroll to 'current review'  view ...");
+                    for (int i = 0; i < scrollY / 20; i++) {
+                        js.executeScript("window.scrollBy(0,20)", "");
                     }
 
-                    List<WebElement> uiColumnGroupElements = reviewContainer.findElements(By.cssSelector("div.review.hsx_review.ui_columns"));
-                    if (uiColumnGroupElements.size() > 0) {
+                    scrollY = 0;
+                }
 
-                        List<WebElement> uiColumnElements = uiColumnGroupElements.get(0).findElements(By.cssSelector("div.ui_column"));
+                List<WebElement> uiColumnGroupElements = reviewContainer.findElements(By.cssSelector("div.review.hsx_review.ui_columns"));
+                if (uiColumnGroupElements.size() > 0) {
 
-                        //  '번역'
-                        List<WebElement> translationElements = reviewContainer.findElements(By.cssSelector("div.headers div.prw_rup.prw_reviews_mt_header_hsx div.translation div.translationOptions form.translationOptionForm label input.submitOnClick"));
+                    List<WebElement> uiColumnElements = uiColumnGroupElements.get(0).findElements(By.cssSelector("div.ui_column"));
 
-                        for (WebElement inputElement : translationElements) {
-                            String inputType = inputElement.getAttribute("value");
-                            if (inputType.contains("false")) {
-                                if (Objects.isNull(inputElement.getAttribute("checked"))) {
-                                    inputElement.click();
+                    //  '번역'
+                    List<WebElement> translationElements = reviewContainer.findElements(By.cssSelector("div.headers div.prw_rup.prw_reviews_mt_header_hsx div.translation div.translationOptions form.translationOptionForm label input.submitOnClick"));
 
-                                    didMakeTranslationDisabled = true;
+                    for (WebElement inputElement : translationElements) {
+                        String inputType = inputElement.getAttribute("value");
+                        if (inputType.contains("false")) {
+                            if (Objects.isNull(inputElement.getAttribute("checked"))) {
+                                inputElement.click();
 
-                                    //  자동으로 전체 페이지 리로딩 됨
-                                    Thread.sleep(WAIT_MILLIS_3_SECOND);
+                                //  자동으로 전체 페이지 리로딩 됨
+                                Thread.sleep(WAIT_MILLIS_3_SECOND);
 
-                                    return true;
-                                }
+                                return true;
                             }
                         }
                     }
-
-                    scrollY = reviewContainer.getSize().getHeight();
                 }
-            } catch (Exception excp) {
-                throw excp;
+
+                scrollY = reviewContainer.getSize().getHeight();
             }
+        } catch (Exception excp) {
+            throw excp;
         }
 
         return false;
@@ -662,34 +671,29 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                 scrollY = 0;
             }
 
-            for (int index = 0; index < MAX_TRY; ++index) {
-                try {
-                    WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS"));
-                    WebElement reviewSelector = reviewsElement.findElement(By.id(reviewSelectorId));
-                    List<WebElement> uiColumnGroupElements = reviewSelector.findElements(By.cssSelector("div.review.hsx_review.ui_columns"));
+            WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS"));
+            WebElement reviewSelector = reviewsElement.findElement(By.id(reviewSelectorId));
+            List<WebElement> uiColumnGroupElements = reviewSelector.findElements(By.cssSelector("div.review.hsx_review.ui_columns"));
 
-                    if (uiColumnGroupElements.size() > 0) {
-                        List<WebElement> uiColumnElements = uiColumnGroupElements.get(0).findElements(By.cssSelector("div.ui_column"));
-                        WebElement reviewInfoColumn = uiColumnElements.get(1);
+            scrollY = reviewSelector.getSize().getHeight();
 
-                        //  '더 보기 버튼이 있는 경우
-                        List<WebElement> moreButtonElements = reviewInfoColumn.findElements(By.cssSelector("span.taLnk.ulBlueLinks"));
-                        if (moreButtonElements.size() > 0 &&
-                                moreButtonElements.get(0).getText().contains("보기")) {
+            if (uiColumnGroupElements.size() > 0) {
+                List<WebElement> uiColumnElements = uiColumnGroupElements.get(0).findElements(By.cssSelector("div.ui_column"));
+                WebElement reviewInfoColumn = uiColumnElements.get(1);
 
-                            log.debug("Click 'More' button & wait for loading : {} ms", sleepMillis);
-                            moreButtonElements.get(0).click();
-                            //  Wait for realoding reviews
-                            Thread.sleep(WAIT_MILLIS_4_SECOND);
+                //  '더 보기 버튼이 있는 경우
+                List<WebElement> moreButtonElements = reviewInfoColumn.findElements(By.cssSelector("span.taLnk.ulBlueLinks"));
+                if (moreButtonElements.size() > 0 &&
+                        moreButtonElements.get(0).getText().contains("더 보기")) {
+                    js.executeScript("arguments[0].scrollIntoView(true);", reviewSelector);
+                    Thread.sleep(500);
 
-                            return true;
-                        }
-                    }
+                    log.debug("Click 'More' button & wait for loading : {} ms", sleepMillis);
+                    moreButtonElements.get(0).click();
+                    //  Wait for realoding reviews
+                    Thread.sleep(WAIT_MILLIS_4_SECOND);
 
-                    scrollY = reviewSelector.getSize().getHeight();
-
-                } catch (Exception excp) {
-                    log.error("Checking translation & see more button failed");
+                    return true;
                 }
             }
         }
