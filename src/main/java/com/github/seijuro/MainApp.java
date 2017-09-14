@@ -1301,8 +1301,9 @@ public class MainApp {
                 try {
                     webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
 
+                    String workingDirpath = String.format("%s%sReviews", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
                     TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
-                    BasicHTMLFileWriter writer = new BasicHTMLFileWriter(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
+                    BasicHTMLFileWriter writer = new BasicHTMLFileWriter(workingDirpath);
 
                     while (true) {
                         String hotelId = null;
@@ -1428,7 +1429,7 @@ public class MainApp {
 
             //  load hotel-ids
             {
-                String inputFilepath = String.format("%s%sTripAdvisorLinkURL.txt", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
+                String inputFilepath = String.format("%s%sTripAdvisorLinkURL_ORG.txt", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
 
                 BufferedReader reader = new BufferedReader(new FileReader(inputFilepath));
                 while (Objects.nonNull(line = reader.readLine())) {
@@ -1959,10 +1960,10 @@ public class MainApp {
          */
 //        extractTripAdvisorHotelReviewURL();
 
-        ExecutorService excutors = Executors.newFixedThreadPool(5);
+        ExecutorService excutors = Executors.newFixedThreadPool(6);
 
-        recoverErrorTripAdvisorReviews(excutors, 5);
-        scrapTripAdvisorReviews(excutors, 5);
+        scrapTripAdvisorReviews(excutors, 6);
+        recoverErrorTripAdvisorReviews(excutors, 6);
 //        summaryTripAdvisorHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
 
 //        try {
