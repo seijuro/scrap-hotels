@@ -2,7 +2,8 @@ package com.github.seijuro;
 
 import com.github.seijuro.db.reader.ExpediaHotelBaseReader;
 import com.github.seijuro.db.reader.ExpediaSnaphostReader;
-import com.github.seijuro.excp.ConfigurationException;
+
+import com.github.seijuro.db.schema.TripAdvisorURLTable;
 import com.github.seijuro.http.rest.IURLEncoder;
 import com.github.seijuro.http.rest.RestfulAPIResponse;
 import com.github.seijuro.scrap.Scraper;
@@ -28,6 +29,8 @@ import com.github.seijuro.site.com.hotels.property.query.QueryProperty;
 import com.github.seijuro.site.com.hotels.result.*;
 import com.github.seijuro.site.com.tripadvisor.BasicHTMLFileWriter;
 import com.github.seijuro.site.com.tripadvisor.TripAdvisorReviewScraper;
+import com.github.seijuro.site.com.tripadvisor.TripAdvisorReviewerProfileParser;
+import com.github.seijuro.site.com.tripadvisor.data.TripAdvisorReviewerProfile;
 import com.github.seijuro.snapshot.*;
 import com.github.seijuro.writer.CSVFileWriter;
 import com.google.gson.Gson;
@@ -52,6 +55,8 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.*;
 
 @Log4j2
@@ -814,8 +819,6 @@ public class MainApp {
     }
 
 
-
-
     public static void parseHotelReviews(AgodaHotelReviewWriter writer, File... files) {
         for (File file : files) {
             if (file.isDirectory()) {
@@ -1007,6 +1010,7 @@ public class MainApp {
 
             Document document = Jsoup.parse(contentBuilder.toString());
             Elements hotelElements = document.body().select("div.listing.easyClear.p13n_imperfect");
+            Elements hotelElements_2 = document.body().select("div.ppr_rup.ppr_priv_hsx_hd_sponsored_cell");
 
             for (Element hotelElement : hotelElements) {
                 String hotelId = hotelElement.attr("data-locationid");
@@ -1022,7 +1026,7 @@ public class MainApp {
                     //  Log
                     log.debug("linkURL : {}", linkURL);
 
-                    fwriter.write(String.format("%s : %s%s", hotelId, linkURL, System.lineSeparator()));
+                    fwriter.write(String.format("%s:%s%s", hotelId, linkURL, System.lineSeparator()));
                 }
             }
 
@@ -1045,11 +1049,33 @@ public class MainApp {
 
     public static void extractTripAdvisorHotelReviewURL() {
         try {
-            String srcRootPath = getUserHomePath() + "/Desktop/TripAdvisor.com";
-            String outFilepath = getUserHomePath() + "/Desktop/TripAdvisorLinkURL.txt";
-            FileWriter fileWriter = new FileWriter(outFilepath, true);
+            String srcRootPath = getUserHomePath() + "/Desktop/TripAdvisor.com/Search";
+            String outFilepath = getUserHomePath() + "/Desktop/TripAdvisor.com/TripAdvisorLinkURL.txt";
 
-            extractTripAdvisorHotelReviewURL(fileWriter, new File(srcRootPath).listFiles());
+
+            FileWriter fileWriter = new FileWriter(outFilepath, false);
+
+            MySQLConnectionString connectionString = getMySQLConnectionString();
+            Class.forName("com.mysql.jdbc.Driver");
+            Connection connection = DriverManager.getConnection(connectionString.toConnectionString(), connectionString.getUser(), connectionString.getPassword());
+            connection.setAutoCommit(false);
+
+            Statement stmt = connection.createStatement();
+
+            ResultSet rs = stmt.executeQuery("SELECT id, linkURL FROM TripAdvisor_URL GROUP BY id");
+
+            while (rs.next()) {
+                String hotelId = rs.getString(1);
+                String linkURL = rs.getString(2);
+
+                fileWriter.write(String.format("%s:https://%s%s", hotelId, linkURL, System.lineSeparator()));
+            }
+
+            rs.close();
+            stmt.close();
+            connection.close();
+
+//            extractTripAdvisorHotelReviewURL(fileWriter, new File(srcRootPath).listFiles());
 
             fileWriter.close();
         }
@@ -1189,7 +1215,6 @@ public class MainApp {
                                         log.debug("scrap from page# : {}", pageNumber);
                                     }
 
-
                                     scraper.scrapFrom(searchURL, pageNumber, 3* DateUtils.MILLIS_PER_SECOND);
                                     continue;
                                 }
@@ -1274,8 +1299,8 @@ public class MainApp {
             //  load hotel-ids
             {
                 String inputFilepath = String.format("%s%sTripAdvisorLinkURL.txt", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
-
                 BufferedReader reader = new BufferedReader(new FileReader(inputFilepath));
+
                 while (Objects.nonNull(line = reader.readLine())) {
                     String[] tokens = line.split(":", 2);
                     hotelInfos.put(tokens[0].trim(), tokens[1].trim());
@@ -1881,7 +1906,7 @@ public class MainApp {
          *
          * site : TripAdvisor.com
          */
-//        extractTripAdvisorHotelReviewURL();
+        extractTripAdvisorHotelReviewURL();
 
         scrapTripAdvisorReviews(5);
 //        summaryTripAdvisorHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
