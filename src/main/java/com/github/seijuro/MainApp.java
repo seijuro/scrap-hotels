@@ -1288,8 +1288,9 @@ public class MainApp {
                 try {
                     webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
 
+                    String workingDirpath = String.format("%s%sReviews", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
                     TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
-                    BasicHTMLFileWriter writer = new BasicHTMLFileWriter(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
+                    BasicHTMLFileWriter writer = new BasicHTMLFileWriter(workingDirpath);
 
                     while (true) {
                         String hotelId = null;
