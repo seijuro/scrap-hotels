@@ -636,8 +636,6 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         List<String> reviewSelectorIds = getReviewSelectorIds();
 
         for (String reviewSelectorId : reviewSelectorIds) {
-            WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS"));
-
             if (scrollY > 0) {
                 log.debug("Scroll to 'current review'  view ...");
                 for (int i = 0; i < scrollY / 20; i++) {
@@ -647,10 +645,11 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
             for (int index = 0; index < MAX_TRY; ++index) {
                 try {
+                    WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS"));
                     WebElement reviewSelector = reviewsElement.findElement(By.id(reviewSelectorId));
                     List<WebElement> uiColumnGroupElements = reviewSelector.findElements(By.cssSelector("div.review.hsx_review.ui_columns"));
-                    if (uiColumnGroupElements.size() > 0) {
 
+                    if (uiColumnGroupElements.size() > 0) {
                         List<WebElement> uiColumnElements = uiColumnGroupElements.get(0).findElements(By.cssSelector("div.ui_column"));
                         WebElement reviewInfoColumn = uiColumnElements.get(1);
 

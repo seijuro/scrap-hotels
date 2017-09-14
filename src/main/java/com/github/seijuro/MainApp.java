@@ -1949,7 +1949,7 @@ public class MainApp {
 
         ExecutorService excutors = Executors.newFixedThreadPool(6);
 
-        recoverErrorTripAdvisorReviews(excutors, 2);
+        recoverErrorTripAdvisorReviews(excutors, 6);
         scrapTripAdvisorReviews(excutors, 6);
 //        summaryTripAdvisorHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
 
