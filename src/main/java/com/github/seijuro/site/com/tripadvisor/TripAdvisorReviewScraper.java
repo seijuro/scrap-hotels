@@ -13,6 +13,7 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.interactions.Actions;
 
+import java.io.File;
 import java.util.*;
 
 @Log4j2
@@ -26,6 +27,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
     public static final long WAIT_MILLIS_2_5_SECOND = 2500L;
     public static final long WAIT_MILLIS_3_SECOND = 3000L;
     public static final long WAIT_MILLIS_3_5_SECOND = 3500L;
+    public static final long WAIT_MILLIS_4_SECOND = 4000L;
 
     public static final int MAX_TRY = 3;
 
@@ -458,19 +460,47 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                                 Actions mouseOverAction = new Actions(webDriver);
                                 mouseOverAction.moveToElement(memberOverlayLink).build().perform();
                                 //  사용자 정보 툴립 팝업 로딩
-                                Thread.sleep(WAIT_MILLIS_3_5_SECOND);
+                                Thread.sleep(WAIT_MILLIS_1_SECOND);
 
                                 //  scrap tool-tip ...
                                 log.debug("Scrap 'tool-tip' ...");
 
-                                List<WebElement> tootipElements = webDriver.findElements(By.cssSelector("body span.ui_overlay.ui_popover.arrow_left"));
-                                if (tootipElements.size() > 0) {
-                                    WebElement tootipElement = tootipElements.get(0);
-                                    String tooltipHTML = tootipElement.getAttribute("innerHTML");
+                                for (int index2 = 0; index2 < MAX_TRY; ++index2) {
+                                    try {
+                                        List<WebElement> tootipElements = webDriver.findElements(By.cssSelector("body span.ui_overlay.ui_popover.arrow_left"));
+                                        if (tootipElements.size() > 0) {
+                                            WebElement tootipElement = tootipElements.get(0);
+                                            String tooltipHTML = tootipElement.getAttribute("innerHTML");
 
-                                    if (Objects.nonNull(writer)) {
-                                        log.debug("Saving 'tooltip' HTML ... result : {}", writer.write(new String[]{targetHierarchy[0], targetHierarchy[1], "tooltip"}, String.format("%s.html", reviewId), "<html>" + tooltipHTML + "</html>"));
+                                            if (StringUtils.normalizeSpace(tootipElement.getText()).length() == 0) {
+                                                //  log
+                                                log.debug("seems to be loading isn't finished yet.");
+
+                                                Thread.sleep((index2 + 1L) * DateUtils.MILLIS_PER_SECOND);
+
+                                                continue;
+                                            }
+
+                                            if (Objects.nonNull(writer)) {
+                                                log.debug("Saving 'tooltip' HTML ... result : {}", writer.write(new String[]{targetHierarchy[0], targetHierarchy[1], "tooltip"}, String.format("%s.html", reviewId), "<html>" + tooltipHTML + "</html>"));
+                                            }
+                                        }
+
+                                        break;
                                     }
+                                    catch (Exception excp) {
+                                        if ((index2 + 1) == MAX_TRY) {
+                                            log.error("failed to scrap tooltip (reviewer's profile). ");
+
+                                            if (Objects.nonNull(writer)) {
+                                                writer.error(String.format("%s:%s%s", hotelId, currentPage, System.lineSeparator()));
+                                            }
+
+                                            throw excp;
+                                        }
+                                    }
+
+                                    Thread.sleep(1L * DateUtils.MILLIS_PER_SECOND);
                                 }
 
                                 //  사용자 정보 툴팁 닫기 위한 마우스 액션
@@ -592,7 +622,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
     }
 
     /**
-     * If the contents of review was fold, this method make the review unfole & make it shown all contents.
+     * If the contents of review was fold, this method make the review unfold & make it shown all contents.
      *
      * @return
      */
@@ -606,7 +636,6 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
         for (String reviewSelectorId : reviewSelectorIds) {
             WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS"));
-            WebElement reviewSelector = reviewsElement.findElement(By.id(reviewSelectorId));
 
             if (scrollY > 0) {
                 log.debug("Scroll to 'current review'  view ...");
@@ -615,33 +644,45 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                 }
             }
 
-            try {
-                List<WebElement> uiColumnGroupElements = reviewSelector.findElements(By.cssSelector("div.review.hsx_review.ui_columns"));
-                if (uiColumnGroupElements.size() > 0) {
+            for (int index = 0; index < MAX_TRY; ++index) {
+                try {
+                    WebElement reviewSelector = reviewsElement.findElement(By.id(reviewSelectorId));
+                    List<WebElement> uiColumnGroupElements = reviewSelector.findElements(By.cssSelector("div.review.hsx_review.ui_columns"));
+                    if (uiColumnGroupElements.size() > 0) {
 
-                    List<WebElement> uiColumnElements = uiColumnGroupElements.get(0).findElements(By.cssSelector("div.ui_column"));
-                    WebElement reviewInfoColumn = uiColumnElements.get(1);
+                        List<WebElement> uiColumnElements = uiColumnGroupElements.get(0).findElements(By.cssSelector("div.ui_column"));
+                        WebElement reviewInfoColumn = uiColumnElements.get(1);
 
-                    //  '더 보기 버튼이 있는 경우
-                    List<WebElement> moreButtonElements = reviewInfoColumn.findElements(By.cssSelector("span.taLnk.ulBlueLinks"));
-                    if (moreButtonElements.size() > 0 &&
-                            moreButtonElements.get(0).getText().contains("보기")) {
+                        //  '더 보기 버튼이 있는 경우
+                        List<WebElement> moreButtonElements = reviewInfoColumn.findElements(By.cssSelector("span.taLnk.ulBlueLinks"));
+                        if (moreButtonElements.size() > 0 &&
+                                moreButtonElements.get(0).getText().contains("보기")) {
 
-                        log.debug("Click 'More' button & wait for loading : {} ms", sleepMillis);
-                        moreButtonElements.get(0).click();
-                        //  Wait for realoding reviews
-                        Thread.sleep(WAIT_MILLIS_3_SECOND);
+                            log.debug("Click 'More' button & wait for loading : {} ms", sleepMillis);
+                            moreButtonElements.get(0).click();
+                            //  Wait for realoding reviews
+                            Thread.sleep(WAIT_MILLIS_4_SECOND);
 
-                        return true;
+                            return true;
+                        }
+                        //  '더 보기' 버튼이 없는 경우
+                        else {
+                            scrollY = reviewSelector.getSize().getHeight();
+                            break;
+                        }
                     }
                 }
-            }
-            catch (Exception excp) {
-                log.error("Checking translation & see more button failed");
-                throw excp;
-            }
+                catch (Exception excp) {
+                    log.error("Checking translation & see more button failed");
+                }
 
-            scrollY = reviewSelector.getSize().getHeight();
+                if ((index + 1) == MAX_TRY) {
+                    throw new Exception("Failed to check if the button 'see more' exists.");
+                }
+
+                //  로딩 자체가 덜 되어서 엘러멘트 생성이 안 된 경우.
+                Thread.sleep(1L * DateUtils.MILLIS_PER_SECOND);
+            }
         }
 
         return false;

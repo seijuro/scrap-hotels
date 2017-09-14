@@ -2,6 +2,7 @@ package com.github.seijuro;
 
 import com.github.seijuro.db.reader.ExpediaHotelBaseReader;
 import com.github.seijuro.db.reader.ExpediaSnaphostReader;
+
 import com.github.seijuro.db.schema.TripAdvisorURLTable;
 import com.github.seijuro.http.rest.IURLEncoder;
 import com.github.seijuro.http.rest.RestfulAPIResponse;
@@ -34,6 +35,7 @@ import com.github.seijuro.snapshot.*;
 import com.github.seijuro.writer.CSVFileWriter;
 import com.google.gson.Gson;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.DateUtils;
@@ -47,6 +49,7 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
 
+import java.awt.print.Book;
 import java.io.*;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -59,9 +62,19 @@ import java.util.*;
 @Log4j2
 public class MainApp {
     @Getter
-    public static final String UserHomePath = "/Users/konan";
+    public static final String UserHomePath = System.getProperty("user.home");
     @Getter
-    public static final String ChromeDriverPath = UserHomePath + "/Desktop/Selenium-grid/chromedriver";
+    public static final String ChromeWebDriverProerty = "webdriver.chrome.driver";
+    @Getter
+    public static final String TripAdvisorHomeProperty = "site.tripadvisor.home";
+    @Getter
+    public static final String BookingHomeProerty = "site.booking.home";
+    @Getter
+    public static final String AgodaHomeProerty = "site.agoda.home";
+    @Getter
+    public static final String ExpediaHomeProerty = "site.expedia.home";
+    @Getter
+    public static final String HotelsHomeProerty = "site.hotles.home";
 
     static final String ROOT_DIR_BOOKING = UserHomePath + "/Developer/Booking.com";
     static final String ROOT_DIR_EXPEDIA = UserHomePath + "/Developer/Expedia.com";
@@ -185,7 +198,6 @@ public class MainApp {
 
             SnapshotReader snapshotReader = new SnapshotReader(connection);
             HotelsWriter hotelsWriter = new HotelsWriter(connection);
-
 
             for (Destination destination : destinations) {
                 for (Sort sortOrder : sortOrders) {
@@ -330,7 +342,6 @@ public class MainApp {
             int offset = 0;
             String requestURL = getBookingSeoulURL(rows, offset);
 
-            System.setProperty("webdriver.chrome.driver", getChromeDriverPath());
             WebDriver driver = new ChromeDriver();
             driver.get(requestURL);
 
@@ -1172,6 +1183,7 @@ public class MainApp {
 
     private static List<Thread> createRecoverTripAdvisorReviewThread(int threadCount, final Map<String, String> hotelInfos, final Iterator<String> iterErrorLogs) {
         List<Thread> threads = new ArrayList<>();
+        String homeDirpath = System.getProperty(getTripAdvisorHomeProperty());
 
         for (int index = 0; index < threadCount; ++index) {
             {
@@ -1183,7 +1195,7 @@ public class MainApp {
                         webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
 
                         TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
-                        BasicHTMLFileWriter writer = new BasicHTMLFileWriter(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
+                        BasicHTMLFileWriter writer = new BasicHTMLFileWriter(String.format("%s%sReviews", homeDirpath, File.separator));
 
                         String errorLog = null;
 
@@ -1251,7 +1263,9 @@ public class MainApp {
 
             //  load hotel-ids
             {
-                BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/TripAdvisorLinkURL.txt"));
+                String inputFilepath = String.format("%s%sTripAdvisorLinkURL.txt", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
+
+                BufferedReader reader = new BufferedReader(new FileReader(inputFilepath));
                 while (Objects.nonNull(line = reader.readLine())) {
                     String[] tokens = line.split(":", 2);
                     hotelInfos.put(tokens[0].trim(), tokens[1].trim());
@@ -1297,7 +1311,9 @@ public class MainApp {
 
             //  load hotel-ids
             {
-                BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/TripAdvisorLinkURL.txt"));
+                String inputFilepath = String.format("%s%sTripAdvisorLinkURL.txt", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
+                BufferedReader reader = new BufferedReader(new FileReader(inputFilepath));
+
                 while (Objects.nonNull(line = reader.readLine())) {
                     String[] tokens = line.split(":", 2);
                     hotelInfos.put(tokens[0].trim(), tokens[1].trim());
@@ -1325,73 +1341,383 @@ public class MainApp {
         }
     }
 
-    private static void parseTripAdvisorReviewerProfile(TripAdvisorReviewerProfileWriter writer, File file, String hotelId, int page, String reviewId) {
-        //  Log
+    static String TripAdvisorHome = StringUtils.EMPTY;
+    static String ExpediaHome = StringUtils.EMPTY;
+    static String AgodaHome = StringUtils.EMPTY;
+    static String BookingHome = StringUtils.EMPTY;
+    static String HotelsHome = StringUtils.EMPTY;
+
+    private static void summaryTripAdvisorHotelReviews(String hotelReviewsPath) {
         try {
-            String line;
-            StringBuffer contentBuilder = new StringBuffer();
-            BufferedReader reader = new BufferedReader(new FileReader(file));
-            while (Objects.nonNull((line = reader.readLine()))) {
-                contentBuilder.append(line);
+            FileWriter fwriter = new FileWriter(String.format("%s%ssummary.txt", getTripAdvisorHomeProperty(), File.separator), false);
+
+            File rootpath = new File(hotelReviewsPath);
+            for (File hotelDir : rootpath.listFiles()) {
+                if (hotelDir.isDirectory()) {
+                    String hotelId = hotelDir.getName();
+                    //  Log
+                    log.debug("hotel-id : {}", hotelId);
+
+                    int maxPageNo = 0;
+                    List<Integer> listOfPages = new ArrayList<>();
+
+                    for (File pageDir : hotelDir.listFiles()) {
+                        StringBuffer pageLogBuffer = new StringBuffer();
+                        int pageSourceCount = 0;
+                        int tooltipPageSourceCount = 0;
+
+                        if (pageDir.isDirectory()) {
+                            String pageNumber = pageDir.getName();
+
+                            //  Log
+                            if (maxPageNo < Integer.parseInt(pageNumber)) {
+                                maxPageNo = Integer.parseInt(pageNumber);
+                            }
+
+                            listOfPages.add(Integer.parseInt(pageNumber));
+
+                            for (File scrapFile : pageDir.listFiles()) {
+                                StringBuffer sbFiles = new StringBuffer();
+
+                                if (scrapFile.isDirectory() &&
+                                        scrapFile.getName().equals("tooltip")) {
+                                    for (File profileFile : scrapFile.listFiles()) {
+                                        if (!profileFile.isHidden() &&
+                                                profileFile.getName().endsWith(".html")) {
+                                            ++tooltipPageSourceCount;
+                                        }
+                                    }
+                                }
+                                else {
+                                    if (!scrapFile.isHidden() &&
+                                            scrapFile.getName().endsWith(".html")) {
+                                        ++pageSourceCount;
+                                    }
+                                }
+                            }
+
+                            if (pageSourceCount < 1) {
+                                fwriter.write(String.format("# HTML page source doesn't exists.%s", System.lineSeparator()));
+                                fwriter.write(String.format("%s:%d%s", hotelDir.getName(), Integer.parseInt(pageDir.getName()), System.lineSeparator()));
+                            }
+
+                            if (tooltipPageSourceCount != 5) {
+                                fwriter.write(String.format("# The number of HTML page source files (%d) is lower than 5 (expacted).%s", tooltipPageSourceCount, System.lineSeparator()));
+                                fwriter.write(String.format("%s:%d%s", hotelDir.getName(), Integer.parseInt(pageDir.getName()), System.lineSeparator()));
+                            }
+                        }
+
+                        fwriter.flush();
+                    }
+
+                    if (maxPageNo > listOfPages.size()) {
+                        for (int index = 0; index < maxPageNo; ++index) {
+                            if (!listOfPages.contains(Integer.valueOf(index + 1))) {
+                                fwriter.write(String.format("# page directory doesn't exists.%s", System.lineSeparator()));
+                                fwriter.write(String.format("%s:%s%s", hotelDir.getName(), index + 1, System.lineSeparator()));
+                            }
+                        }
+                    }
+                }
             }
 
-            reader.close();
-
-            TripAdvisorReviewerProfileParser parser = new TripAdvisorReviewerProfileParser(hotelId, page, reviewId);
-            List<TripAdvisorReviewerProfile> result = parser.parse(contentBuilder.toString());
-
-            if (result.size() > 0) {
-                log.debug("[PROFILE] >> status : [NORMAL], file : {}, hotel-id : {}, page : {}, review-id : {} profile : {}", file.getName(), hotelId, page, reviewId, result.get(0).toString());
-                writer.write(result.toArray(new TripAdvisorReviewerProfile[result.size()]), null, null, null, null, null, null, 0);
-            }
-            else {
-                log.debug("[PROFILE] >> stauts : [WARN], file : {}, hotel-id : {}, page : {}, review-id : {}", file.getName(), hotelId, page, reviewId);
-            }
+            fwriter.close();
         }
         catch (IOException excp) {
-            log.debug("[PROFILE] >> stauts : [ERROR], file : {}, hotel-id : {}, page : {}, review-id : {}", file.getName(), hotelId, page, reviewId);
-
             excp.printStackTrace();
         }
     }
 
-    private static void parseTooltipFile(TripAdvisorReviewerProfileWriter writer, File reviewerProfileDir) {
-        final String suffix = ".html";
 
-        for (File profile : reviewerProfileDir.listFiles()) {
-            if (!profile.isHidden() &&
-                    profile.getName().endsWith(suffix)) {
-                String filename = profile.getName();
-                String reviewId = filename.substring(0, filename.indexOf(suffix));
-                String[] tokens = reviewerProfileDir.getParent().split(File.separator);
-                int pageNumber = Integer.parseInt(tokens[tokens.length - 1]);
-                String hotelId = tokens[tokens.length - 2];
 
-                //  parse
-                parseTripAdvisorReviewerProfile(writer, profile, hotelId, pageNumber, reviewId);
-            }
+    public enum Argument {
+        NONE(""),
+        SITE("--site"),
+        HOME_DIR("--homedir"),
+        OPRERATOR("--operator"),
+        OPERAND("--operand");
+
+        private final String text;
+
+        Argument(String text) {
+            this.text = text;
         }
 
-        writer.commit();
-    }
-
-
-    private static void parseTripAdvisorReviewerProfile(TripAdvisorReviewerProfileWriter writer, File... files) {
-        for (File file : files) {
-            if (file.isDirectory()) {
-                if (file.getName().equals("tooltip")) {
-                    parseTooltipFile(writer, file);
-                }
-                else {
-                    parseTripAdvisorReviewerProfile(writer, file.listFiles());
-                }
-            }
+        public String toText() {
+            return text;
         }
     }
 
+    public enum SiteType {
+        TRIPADVISOR("tripadvisor"),
+        EXPEDIA("expedia"),
+        AGODA("agoda"),
+        BOOKING("booking"),
+        HOTELS("hotels");
+
+        private final String type;
+
+        SiteType(String type) {
+            this.type = type;
+        }
+
+        public String toText() {
+            return type;
+        }
+    }
+
+    public enum Operation {
+        SCRAP("scrap"),
+        RECOVER("recover"),
+        INSPECT("inspect");
+
+        private final String text;
+
+        Operation(String operation) {
+            this.text = operation;
+        }
+
+        public String toText() {
+            return text;
+        }
+    }
+
+    public interface Operand {
+        public abstract String toText();
+    }
+
+    public enum TripAdvisorScrapOperand implements Operand {
+        SEARCH("search"),
+        REVIEWS("review");
+
+        private final String text;
+
+        TripAdvisorScrapOperand(String text) {
+            this.text = text;
+        }
+
+        public String toText() {
+            return text;
+        }
+    }
+
+    public enum TripAdvisorRecoverOperand implements Operand {
+        PAGES("tooltip"),
+        TOOLTIPS("page");;
+
+        private final String text;
+
+        TripAdvisorRecoverOperand(String text) {
+            this.text = text;
+        }
+
+        public String toText() {
+            return text;
+        }
+    }
+
+    public static void printUsage(Argument argument) {
+        // log
+        System.out.println("Not implemented yet.");
+    }
+
+
+    @Setter
+    private static SiteType siteType = null;
+    @Setter
+    private static Operation operation = null;
+    @Setter
+    private static Operand operand = null;
 
     public static void main(String[] args) {
-//        System.setProperty("webdriver.chrome.driver", getChromeDriverPath());
+        if (args.length < 1) {
+            printUsage(Argument.NONE);
+        }
+
+        for (int index = 0; index < args.length; ++index) {
+            if (Argument.SITE.toText().equals(args[index])) {
+                ++index;
+
+                if (index < args.length) {
+                    String value = args[index];
+
+                    for (SiteType type : SiteType.values()) {
+                        if (type.toText().equals(value)) {
+                            siteType = type;
+                            break;
+                        }
+                    }
+
+                    if (Objects.isNull(siteType)) {
+                        log.error("Unknown site : {}", value);
+                        printUsage(Argument.SITE);
+
+                        return;
+                    }
+                }
+                else {
+                    //  Log
+                    log.error("The value of param, {}, isn't set.", Argument.SITE.toText());
+
+                    printUsage(Argument.SITE);
+                    return;
+                }
+            }
+            else if (Argument.OPRERATOR.toText().equals(args[index])) {
+                ++index;
+
+                if (index < args.length) {
+                    String value = args[index];
+
+                    for (Operation opr : Operation.values()) {
+                        if (opr.toText().equals(value)) {
+                            operation = opr;
+                            break;
+                        }
+                    }
+
+                    if (Objects.isNull(operation)) {
+                        log.error("Unknown operator : {}", value);
+                        printUsage(Argument.SITE);
+
+                        return;
+                    }
+                }
+                else {
+                    //  Log
+                    log.error("The value of param, {}, isn't set.", Argument.OPRERATOR.toText());
+
+                    printUsage(Argument.OPRERATOR);
+                    return;
+                }
+            }
+            else if (Argument.OPERAND.toText().equals(args[index])) {
+                ++index;
+
+                if (index < args.length) {
+                    String value = args[index];
+
+                    //  Scrap operand
+                    {
+                        Operand[] values = TripAdvisorScrapOperand.values();
+                        for (Operand op : values) {
+                            if (op.toText().equals(value)) {
+                                operand = op;
+                                break;
+                            }
+                        }
+                    }
+
+                    //  Recover operand
+                    if (Objects.isNull(operand)) {
+                        Operand[] values = TripAdvisorRecoverOperand.values();
+                        for (Operand op : values) {
+                            if (op.toText().equals(value)) {
+                                operand = op;
+                                break;
+                            }
+                        }
+                    }
+                }
+                else {
+                    //  Log
+                    log.error("The value of param, {}, isn't set.", Argument.OPERAND.toText());
+
+                    printUsage(Argument.OPERAND);
+                    return;
+                }
+            }
+        }
+
+//        TripAdvisorHome = System.setProperty(
+//                getTripAdvisorHomeProperty(),
+//                String.format("%s%sDesktop%sTripAdvisor.com",
+//                        getUserHomePath(),
+//                        File.separator,
+//                        File.separator));
+//        System.setProperty(
+//                getChromeWebDriverProerty(),
+//                String.format(
+//                        "%s%sDeveloper%sWebDriver%sChrome%schromedriver",
+//                        getUserHomePath(),
+//                        File.separator,
+//                        File.separator,
+//                        File.separator,
+//                        File.separator));
+//        ExpediaHome = System.setProperty(
+//                getExpediaHomeProerty(),
+//                String.format("%s%sDesktop%sExpedia.com",
+//                        getUserHomePath(),
+//                        File.separator,
+//                        File.separator));
+//        AgodaHome = System.setProperty(
+//                getAgodaHomeProerty(),
+//                String.format("%s%sDesktop%sAgoda.com",
+//                        getUserHomePath(),
+//                        File.separator,
+//                        File.separator));
+//        BookingHome = System.setProperty(
+//                getBookingHomeProerty(),
+//                String.format("%s%sDesktop%sExpedia.com",
+//                        getUserHomePath(),
+//                        File.separator,
+//                        File.separator));
+//        HotelsHome = System.setProperty(
+//                getExpediaHomeProerty(),
+//                String.format("%s%sDesktop%sHotels.com",
+//                        getUserHomePath(),
+//                        File.separator,
+//                        File.separator));
+
+
+        //  default
+        if (StringUtils.isEmpty(System.getProperty(getChromeWebDriverProerty()))) {
+            //  Log
+            log.error("property({}) isn't set.", getChromeWebDriverProerty());
+
+            return;
+        }
+
+        if (siteType == SiteType.TRIPADVISOR) {
+            if (StringUtils.isEmpty((TripAdvisorHome = System.getProperty(getTripAdvisorHomeProperty())))) {
+                //  Log
+                log.error("property({}) isn't set.", getTripAdvisorHomeProperty());
+                return;
+            }
+        }
+        else if (siteType == SiteType.EXPEDIA) {
+            if (StringUtils.isEmpty((ExpediaHome = System.getProperty(getExpediaHomeProerty())))) {
+                //  Log
+                log.error("property({}) isn't set.", getExpediaHomeProerty());
+                return;
+            }
+        }
+        else if (siteType == SiteType.AGODA) {
+            if (StringUtils.isEmpty((AgodaHome = System.getProperty(getAgodaHomeProerty())))) {
+                //  Log
+                log.error("property({}) isn't set.", getAgodaHomeProerty());
+                return;
+            }
+        }
+        else if (siteType == SiteType.BOOKING) {
+            if (StringUtils.isEmpty((BookingHome = System.getProperty(getBookingHomeProerty())))) {
+                //  Log
+                log.error("property({}) isn't set.", getBookingHomeProerty());
+                return;
+            }
+        }
+        else if (siteType == SiteType.HOTELS) {
+            if (StringUtils.isEmpty((HotelsHome = System.getProperty(getHotelsHomeProerty())))) {
+                //  Log
+                log.error("property({}) isn't set.", getHotelsHomeProerty());
+                return;
+            }
+        }
+        else {
+            log.error("site({}) isn't avaiable.", Objects.nonNull(siteType) ? siteType.toText() : "");
+
+            return;
+        }
 
 //        scrapHotelsCom();
 //        scrapBookingCom();
@@ -1445,8 +1771,6 @@ public class MainApp {
          UNIQUE KEY `UIDX_REVIEWER` (`reviewer`,`country`)
          ) ENGINE=MyISAM DEFAULT CHARSET=utf8
          */
-
-
 
 //        try {
 //            Capabilities capabilities = DesiredCapabilities.chrome();
@@ -1597,30 +1921,10 @@ public class MainApp {
          */
 //        extractTripAdvisorHotelReviewURL();
 
-//        recoverErrorTripAdvisorReviews(4);
+        recoverErrorTripAdvisorReviews(6);
+        scrapTripAdvisorReviews(6);
+//        summaryTripAdvisorHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
 
-//        summaryHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
-        scrapTripAdvisorReviews(4);
-//        recoverErrorTripAdvisorReviews(4);
-
-
-//        try {
-//            MySQLConnectionString connectionString = getMySQLConnectionString();
-//            Class.forName("com.mysql.jdbc.Driver");
-//            Connection connection = DriverManager.getConnection(connectionString.toConnectionString(), connectionString.getUser(), connectionString.getPassword());
-//            connection.setAutoCommit(false);
-//
-//            TripAdvisorReviewerProfileWriter writer = new TripAdvisorReviewerProfileWriter(connection);
-//            String path = String.format("%s%s%s%s%s%s%s", getUserHomePath(), File.separator, "Desktop", File.separator, "TripAdvisor.com", File.separator, "Reviews");
-//            File root = new File(path);
-//
-//            parseTripAdvisorReviewerProfile(writer, root.listFiles());
-//
-//            connection.close();
-//        }
-//        catch (Exception excp) {
-//            excp.printStackTrace();
-//        }
 
         /**
          * site : Agoda.com
@@ -1650,8 +1954,6 @@ public class MainApp {
 //                    }
 //                }
 //            }
-
-
 
         /*
         DROP VIEW ExpediaHotelReview;
@@ -1815,88 +2117,6 @@ public class MainApp {
 //        catch (Exception excp) {
 //            excp.printStackTrace();
 //        }
-    }
-
-
-    private static void summaryHotelReviews(String hotelReviewsPath) {
-        try {
-            FileWriter fwriter = new FileWriter(getUserHomePath() + "/Desktop/TripAdvisor.com/summary.txt", false);
-
-            File rootpath = new File(hotelReviewsPath);
-            for (File hotelDir : rootpath.listFiles()) {
-                if (hotelDir.isDirectory()) {
-                    String hotelId = hotelDir.getName();
-                    //  Log
-                    log.debug("hotel-id : {}", hotelId);
-
-                    int maxPageNo = 0;
-                    List<Integer> listOfPages = new ArrayList<>();
-
-                    for (File pageDir : hotelDir.listFiles()) {
-                        StringBuffer pageLogBuffer = new StringBuffer();
-                        int pageSourceCount = 0;
-                        int tooltipPageSourceCount = 0;
-
-                        if (pageDir.isDirectory()) {
-                            String pageNumber = pageDir.getName();
-
-                            //  Log
-                            if (maxPageNo < Integer.parseInt(pageNumber)) {
-                                maxPageNo = Integer.parseInt(pageNumber);
-                            }
-
-                            listOfPages.add(Integer.parseInt(pageNumber));
-
-                            for (File scrapFile : pageDir.listFiles()) {
-                                StringBuffer sbFiles = new StringBuffer();
-
-                                if (scrapFile.isDirectory() &&
-                                        scrapFile.getName().equals("tooltip")) {
-                                    for (File profileFile : scrapFile.listFiles()) {
-                                        if (!profileFile.isHidden() &&
-                                                profileFile.getName().endsWith(".html")) {
-                                            ++tooltipPageSourceCount;
-                                        }
-                                    }
-                                }
-                                else {
-                                    if (!scrapFile.isHidden() &&
-                                            scrapFile.getName().endsWith(".html")) {
-                                        ++pageSourceCount;
-                                    }
-                                }
-                            }
-
-                            if (pageSourceCount < 1) {
-                                fwriter.write(String.format("# HTML page source doesn't exists.%s", System.lineSeparator()));
-                                fwriter.write(String.format("%s:%d%s", hotelDir.getName(), Integer.parseInt(pageDir.getName()), System.lineSeparator()));
-                            }
-
-                            if (tooltipPageSourceCount != 5) {
-                                fwriter.write(String.format("# The number of HTML page source files (%d) is lower than 5 (expacted).%s", tooltipPageSourceCount, System.lineSeparator()));
-                                fwriter.write(String.format("%s:%d%s", hotelDir.getName(), Integer.parseInt(pageDir.getName()), System.lineSeparator()));
-                            }
-                        }
-
-                        fwriter.flush();
-                    }
-
-                    if (maxPageNo > listOfPages.size()) {
-                        for (int index = 0; index < maxPageNo; ++index) {
-                            if (!listOfPages.contains(Integer.valueOf(index + 1))) {
-                                fwriter.write(String.format("# page directory doesn't exists.%s", System.lineSeparator()));
-                                fwriter.write(String.format("%s:%s%s", hotelDir.getName(), index + 1, System.lineSeparator()));
-                            }
-                        }
-                    }
-                }
-            }
-
-            fwriter.close();
-        }
-        catch (IOException excp) {
-            excp.printStackTrace();
-        }
     }
 }
 
