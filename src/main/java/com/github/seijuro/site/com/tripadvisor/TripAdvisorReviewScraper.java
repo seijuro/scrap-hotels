@@ -240,6 +240,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                         goToReview();
                         setSeeMoreIfExist();
 
+                        goToReview();
                         //  사용자 툴팁 윈도우 스크랩
                         result &= scrapTooltip(currentDirHierarchy);
                     }
@@ -265,15 +266,31 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
                     if (scrapType == ScrapType.SCRAP_FROM_PAGE) {
                         //  load next reviews if exists.
-                        WebElement nextReviewPageLink = getNextReviewPageLinkIfExists();
-                        if (Objects.nonNull(nextReviewPageLink)) {
-                            hasNextPage = true;
 
-                            ++currentPage;
-                            nextReviewPageLink.click();
+                        for (int index = 0; index < MAX_TRY; ++index) {
+                            try {
+                                WebElement nextReviewPageLink = getNextReviewPageLinkIfExists();
+                                if (Objects.nonNull(nextReviewPageLink)) {
+                                    Thread.sleep(500);
 
-                            log.debug("Waiting for reloading & scrolling to the top of reviews ...", currentPage, currentPage + 1);
-                            Thread.sleep(WAIT_MILLIS_2_SECOND);
+                                    nextReviewPageLink.click();
+
+                                    hasNextPage = true;
+                                    ++currentPage;
+
+                                    log.debug("Waiting for reloading & scrolling to the top of reviews ...", currentPage, currentPage + 1);
+                                    Thread.sleep(WAIT_MILLIS_2_SECOND);
+
+                                    break;
+                                }
+                            }
+                            catch (Exception excp) {
+                                log.error("find & click 'next' button failed : {}", excp.getMessage());
+                            }
+
+                            if ((index + 1) == MAX_TRY) {
+                                if (Objects.nonNull(writer))  { writer.error(String.format("%s:%d:r%s", hotelId, currentPage + 1, System.lineSeparator())); }
+                            }
                         }
                     }
                 } while (hasNextPage);
@@ -641,6 +658,8 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                 for (int i = 0; i < scrollY / 20; i++) {
                     js.executeScript("window.scrollBy(0,20)", "");
                 }
+
+                scrollY = 0;
             }
 
             for (int index = 0; index < MAX_TRY; ++index) {
@@ -666,6 +685,8 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                             return true;
                         }
                     }
+
+                    scrollY = reviewSelector.getSize().getHeight();
 
                 } catch (Exception excp) {
                     log.error("Checking translation & see more button failed");
