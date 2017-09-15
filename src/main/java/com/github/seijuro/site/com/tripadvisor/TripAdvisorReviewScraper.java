@@ -351,13 +351,16 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                             Thread.sleep(WAIT_MILLIS_4_SECOND);
                         }
                     }
+                    else{
+                        break;
+                    }
 
                     //  Log
-                    log.info("Scraped {}th review page about hotel(id : {}).", currentPage, hotelId);
+                    log.info("[PROGRESS] Scapped review page ... {} : ({} / {})", hotelId, currentPage, lastPageNumber);
                 } while (hasNextPage);
 
                 //  check
-                if ((scrapType == ScrapType.SCRAP_THE_ONLY_SPECIFIED_PAGE) &&
+                if ((scrapType == ScrapType.SCRAP_FROM_PAGE) &&
                         currentPage < lastPageNumber) {
                     writeError(hotelId, currentPage, false,
                             String.format(
@@ -370,7 +373,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
             } while (didReload);
 
             //  Log
-            log.info("Scraping reviews about hotel(id : {}) failed.", hotelId);
+            log.info("[FINISHED] Scrapping reviews finished ... {} : ({} / {})", hotelId, currentPage, lastPageNumber);
         }
         catch (Exception excp) {
             excp.printStackTrace();

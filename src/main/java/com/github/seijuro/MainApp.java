@@ -42,6 +42,8 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.remote.CapabilityType;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
 
@@ -1284,17 +1286,30 @@ public class MainApp {
         return results;
     }
 
+    public synchronized static WebDriver createChromeWebDriver(URL url) {
+        Objects.requireNonNull(url);
+
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--incognito");
+        DesiredCapabilities capabilities = DesiredCapabilities.chrome();
+        capabilities.setCapability(CapabilityType.ForSeleniumServer.ENSURING_CLEAN_SESSION, true);
+        capabilities.setCapability(ChromeOptions.CAPABILITY, options);
+
+        WebDriver webDriver = new RemoteWebDriver(url, capabilities);
+        webDriver.manage().window().maximize();
+
+        return webDriver;
+    }
+
     private static List<Thread> createTripAdvisorReviewScraperThread(int threadCount, final LinkedHashMap<String, String> hotelInfos, final Iterator<String> hotelInfoIdIterator) {
         List<Thread> threads = new ArrayList<>();
 
         for (int index = 0; index < threadCount; ++index) {
             threads.add(new Thread(() -> {
                 WebDriver webDriver = null;
-                Capabilities capabilities = DesiredCapabilities.chrome();
 
                 try {
-                    webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
-                    webDriver.manage().window().maximize();
+                    webDriver = createChromeWebDriver(new URL("http://localhost:5555/wd/hub"));
 
                     String workingDirpath = String.format("%s%sReviews", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
                     TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
