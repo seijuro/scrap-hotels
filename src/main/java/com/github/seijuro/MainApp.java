@@ -5,7 +5,6 @@ import com.github.seijuro.db.reader.ExpediaSnaphostReader;
 
 import com.github.seijuro.http.rest.IURLEncoder;
 import com.github.seijuro.http.rest.RestfulAPIResponse;
-import com.github.seijuro.scrap.Scraper;
 import com.github.seijuro.search.query.Sort;
 import com.github.seijuro.site.com.agoda.*;
 import com.github.seijuro.site.com.agoda.data.AgodaHotel;
@@ -28,8 +27,6 @@ import com.github.seijuro.site.com.hotels.property.query.QueryProperty;
 import com.github.seijuro.site.com.hotels.result.*;
 import com.github.seijuro.site.com.tripadvisor.BasicHTMLFileWriter;
 import com.github.seijuro.site.com.tripadvisor.TripAdvisorReviewScraper;
-import com.github.seijuro.site.com.tripadvisor.TripAdvisorReviewerProfileParser;
-import com.github.seijuro.site.com.tripadvisor.data.TripAdvisorReviewerProfile;
 import com.github.seijuro.snapshot.*;
 import com.github.seijuro.writer.CSVFileWriter;
 import com.google.gson.Gson;
@@ -126,14 +123,14 @@ public class MainApp {
         }
     }
 
-    public enum Operation {
+    public enum Operator {
         SCRAP("scrap"),
         RECOVER("recover"),
         INSPECT("inspect");
 
         private final String text;
 
-        Operation(String operation) {
+        Operator(String operation) {
             this.text = operation;
         }
 
@@ -148,7 +145,7 @@ public class MainApp {
 
     public enum TripAdvisorScrapOperand implements Operand {
         SEARCH("search"),
-        REVIEWS("review");
+        REVIEW("review");
 
         private final String text;
 
@@ -162,8 +159,8 @@ public class MainApp {
     }
 
     public enum TripAdvisorRecoverOperand implements Operand {
-        PAGES("tooltip"),
-        TOOLTIPS("page");;
+        SEARCH("search"),
+        ERROR("error");
 
         private final String text;
 
@@ -185,7 +182,7 @@ public class MainApp {
     @Setter
     private static SiteType siteType = null;
     @Setter
-    private static Operation operation = null;
+    private static Operator operator = null;
     @Setter
     private static Operand operand = null;
 
@@ -1297,6 +1294,7 @@ public class MainApp {
 
                 try {
                     webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
+                    webDriver.manage().window().maximize();
 
                     String workingDirpath = String.format("%s%sReviews", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
                     TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
@@ -1416,6 +1414,10 @@ public class MainApp {
      *
      * @param maxThread
      */
+    private static void recoverErrorTripAdvisorReviews(int maxThread) {
+        recoverErrorTripAdvisorReviews(null, maxThread);
+    }
+
     private static void recoverErrorTripAdvisorReviews(ExecutorService excutors, int maxThread) {
         try {
             final LinkedHashMap<String, String> hotelInfos = new LinkedHashMap<>();
@@ -1438,7 +1440,16 @@ public class MainApp {
             }
 
             {
-                BufferedReader reader = new BufferedReader(new FileReader(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews/error.txt"));
+                String errorFilepath = getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews/error.txt";
+                File errorFile = new File(errorFilepath);
+                File newErrorFile = new File(errorFilepath.replace("error.txt", "error.xxxxxx.txt"));
+
+                File finaleErrorFile = errorFile;
+                if (errorFile.renameTo(newErrorFile)) {
+                    finaleErrorFile = newErrorFile;
+                }
+
+                BufferedReader reader = new BufferedReader(new FileReader(finaleErrorFile));
                 while (Objects.nonNull(line = reader.readLine())) {
                     // check comment line
                     if (line.trim().startsWith("#")) { continue; }
@@ -1469,6 +1480,7 @@ public class MainApp {
         }
     }
 
+
     /**
      * scrap hotel description, reviews, reviewer profile information in 'TripAdvisor'.
      * This method need the file containing 'hotelid:linkRL'.
@@ -1476,6 +1488,10 @@ public class MainApp {
      *
      * @param maxThread
      */
+    private static void scrapTripAdvisorReviews(int maxThread) {
+        scrapTripAdvisorReviews(null, maxThread);
+    }
+
     private static void scrapTripAdvisorReviews(ExecutorService excutors, int maxThread) {
         try {
             final LinkedHashMap<String, String> hotelInfos = new LinkedHashMap<>();
@@ -1508,6 +1524,10 @@ public class MainApp {
                 }
 
                 Thread.sleep(2000L);
+            }
+
+            for (Thread thread : threads) {
+                thread.join();
             }
         }
         catch (Exception excp) {
@@ -1643,14 +1663,14 @@ public class MainApp {
                 if (index < args.length) {
                     String value = args[index];
 
-                    for (Operation opr : Operation.values()) {
+                    for (Operator opr : Operator.values()) {
                         if (opr.toText().equals(value)) {
-                            operation = opr;
+                            operator = opr;
                             break;
                         }
                     }
 
-                    if (Objects.isNull(operation)) {
+                    if (Objects.isNull(operator)) {
                         log.error("Unknown operator : {}", value);
                         printUsage(Argument.SITE);
 
@@ -1703,6 +1723,7 @@ public class MainApp {
             }
         }
 
+
 //        TripAdvisorHome = System.setProperty(
 //                getTripAdvisorHomeProperty(),
 //                String.format("%s%sDesktop%sTripAdvisor.com",
@@ -1754,6 +1775,54 @@ public class MainApp {
         if (!checkSiteTypeVMOptions()) {
             return;
         }
+
+
+        int threads = 6;
+//        ExecutorService executors = null;
+//        executors = Executors.newFixedThreadPool(threads);
+
+        System.out.println("site : " + siteType.toText());
+        System.out.println("operator : " + operator.toText());
+        System.out.println("operand : " + operand.toText());
+
+        //  trip advisor
+        if (siteType == SiteType.TRIPADVISOR) {
+            System.out.println("## TripAdvisor");
+
+            if (operator == Operator.SCRAP) {
+                System.out.println("## TripAdvisor ## Scrap");
+                if (operand == TripAdvisorScrapOperand.SEARCH) {
+                    System.out.println("## TripAdvisor ## Scrap ## Search");
+                }
+                else if (operand == TripAdvisorScrapOperand.REVIEW) {
+                    System.out.println("## TripAdvisor ## Scrap ## Review");
+
+                    scrapTripAdvisorReviews(threads);
+                }
+                else {
+                    //  error
+                }
+            }
+            else if (operator == Operator.RECOVER) {
+                System.out.println("## TripAdvisor ## Recover");
+
+                if (operand == TripAdvisorRecoverOperand.SEARCH) {
+                    System.out.println("## TripAdvisor ## Recover ## Search");
+                }
+                else if (operand == TripAdvisorRecoverOperand.ERROR) {
+                    System.out.println("## TripAdvisor ## Review");
+                    recoverErrorTripAdvisorReviews(threads);
+                }
+                else {
+                    //  error
+                }
+            }
+        }
+
+
+
+
+
 
 //        scrapHotelsCom();
 //        scrapBookingCom();
@@ -1956,10 +2025,11 @@ public class MainApp {
          * site : TripAdvisor.com
          */
 //        extractTripAdvisorHotelReviewURL();
+//        scrapTripAdvisorReviews(threads);
 
 
 //        scrapTripAdvisorReviews(excutors, 6);
-//        recoverErrorTripAdvisorReviews(null, 5);
+//        recoverErrorTripAdvisorReviews(threads);
 //        summaryTripAdvisorHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
 
 //        try {
