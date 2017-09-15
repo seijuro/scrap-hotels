@@ -3,7 +3,6 @@ package com.github.seijuro;
 import com.github.seijuro.db.reader.ExpediaHotelBaseReader;
 import com.github.seijuro.db.reader.ExpediaSnaphostReader;
 
-import com.github.seijuro.db.schema.TripAdvisorURLTable;
 import com.github.seijuro.http.rest.IURLEncoder;
 import com.github.seijuro.http.rest.RestfulAPIResponse;
 import com.github.seijuro.scrap.Scraper;
@@ -49,7 +48,6 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
 
-import java.awt.print.Book;
 import java.io.*;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -59,7 +57,6 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 @Log4j2
 public class MainApp {
@@ -1354,7 +1351,7 @@ public class MainApp {
                         webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
 
                         TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
-                        BasicHTMLFileWriter writer = new BasicHTMLFileWriter(String.format("%s%sReviews", homeDirpath, File.separator));
+                        BasicHTMLFileWriter writer = new BasicHTMLFileWriter(String.format("/Users/sogiro/Google 드라이브/KDI/scrap-Tripadvisor.com/html/reviews_n_tooltips", homeDirpath, File.separator));
 
                         String errorLog = null;
 
@@ -1962,7 +1959,7 @@ public class MainApp {
 
 
 //        scrapTripAdvisorReviews(excutors, 6);
-        recoverErrorTripAdvisorReviews(null, 5);
+//        recoverErrorTripAdvisorReviews(null, 5);
 //        summaryTripAdvisorHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
 
 //        try {
