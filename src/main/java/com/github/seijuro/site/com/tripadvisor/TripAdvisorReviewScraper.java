@@ -284,6 +284,8 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                                 log.error("find & click 'next' button if exists failed : {}", excp.getMessage());
                             }
 
+                            Thread.sleep(WAIT_MILLIS_1_SECOND);
+
                             if ((index + 1) == MAX_TRY) {
                                 if (Objects.nonNull(writer)) {  writer.error(String.format("%s:%s:r", hotelId, currentPage)); }
                                 break;
@@ -609,8 +611,6 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                     for (int i = 0; i < scrollY / 20; i++) {
                         js.executeScript("window.scrollBy(0,20)", "");
                     }
-
-                    scrollY = 0;
                 }
 
                 List<WebElement> uiColumnGroupElements = reviewContainer.findElements(By.cssSelector("div.review.hsx_review.ui_columns"));
@@ -638,7 +638,8 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
                 scrollY = reviewContainer.getSize().getHeight();
             }
-        } catch (Exception excp) {
+        }
+        catch (Exception excp) {
             throw excp;
         }
 
