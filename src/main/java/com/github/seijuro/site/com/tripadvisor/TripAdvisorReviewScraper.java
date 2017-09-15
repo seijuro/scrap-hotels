@@ -134,8 +134,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
     public void saveHTMLPageSource(String[] currentDirHierarchy, String filename) {
         WebDriver webDriver = getDriver();
         if (Objects.nonNull(writer)) {
-            log.debug("Saving 'Review' HTML ... result : {}", writer.write(currentDirHierarchy, filename, webDriver.getPageSource())
-            );
+            writer.write(currentDirHierarchy, filename, webDriver.getPageSource());
         }
     }
 
@@ -219,9 +218,11 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
     }
 
     private void writeError(String hotelId, int pageNumber, boolean naviOpt) {
-        if (Objects.nonNull(writer)) {
-            String[] currentDirHierarchy = new String[]{hotelId, Integer.toString(pageNumber)};
+        writeError(hotelId, pageNumber, naviOpt, StringUtils.EMPTY);
+    }
 
+    private void writeError(String hotelId, int pageNumber, boolean naviOpt, String reason) {
+        if (Objects.nonNull(writer)) {
             StringBuffer errorMessageBuilder = new StringBuffer(hotelId);
 
             errorMessageBuilder.append(":").append(String.format("%04d", pageNumber));
@@ -234,7 +235,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         }
 
         //  Log
-        log.error("[ERROR] hotel id : {}, page : {}, type : \"{}\"", hotelId, pageNumber, naviOpt ? "from_page" : "page");
+        log.error("[ERROR] hotel id : {}, page : {}, type : \"{}\" reason : {}", hotelId, pageNumber, naviOpt ? "from_page" : "page", reason);
     }
 
     private void scrap(ScrapType scrapType, String searchURL, int pageNumber, long sleepMillis) throws Exception {
@@ -276,10 +277,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                     try {
                         //  check has next page & current page ...
                         WebElement nextReviewPageLink = getNextReviewPageLinkIfExists();
-
-                        if (Objects.nonNull(nextReviewPageLink)) {
-                            hasNextPage = true;
-                        }
+                        hasNextPage = Objects.nonNull(nextReviewPageLink) ? true : false;
 
                         currentPage = getCurrentPageNumber();
                         pageName = String.format("%04d", currentPage);
@@ -293,7 +291,6 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                         if (reviewSelectorIds.size() == 0) {
                             //  페이지 저장 후 종료
                             //  Log
-                            log.debug("No review!");
                             saveHTMLPageSource(currentDirHierarchy, String.format("%s.html", pageName));
                             break;
                         }
@@ -319,7 +316,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                     catch (Exception excp) {
                         excp.printStackTrace();
 
-                        writeError(hotelId, currentPage, false);
+                        writeError(hotelId, currentPage, false, String.format("Check files in %s/%04d", hotelId, currentPage));
                     }
 
                     if (scrapType == ScrapType.SCRAP_FROM_PAGE) {
@@ -330,7 +327,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                             Thread.sleep(500);
                             hasNextPage = true;
 
-                            for (int index = 0; index < MAX_TRY; ++index) {
+                            for (int index = 0; index < 2; ++index) {
                                 try {
                                     nextReviewPageLink.click();
                                     currentPage = Integer.parseInt(nextReviewPageLink.getAttribute("data-page-number"));
@@ -339,8 +336,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                                 catch (Exception excp) {
                                     //  error log
                                     if (index == (MAX_TRY - 1)) {
-                                        //
-                                        writeError(hotelId, currentPage, false);
+                                        log.error("At %dth review page (hotel id : %s), failed to click 'next' page button.", currentPage, hotelId);
                                     }
                                 }
 
@@ -349,12 +345,32 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                                 }
                             }
 
+                            //  Log
                             log.debug("Waiting for reloading & scrolling to the top of reviews ...", currentPage, currentPage + 1);
-                            Thread.sleep(WAIT_MILLIS_2_SECOND);
+
+                            Thread.sleep(WAIT_MILLIS_4_SECOND);
                         }
                     }
+
+                    //  Log
+                    log.info("Scraped {}th review page about hotel(id : {}).", currentPage, hotelId);
                 } while (hasNextPage);
+
+                //  check
+                if ((scrapType == ScrapType.SCRAP_THE_ONLY_SPECIFIED_PAGE) &&
+                        currentPage < lastPageNumber) {
+                    writeError(hotelId, currentPage, false,
+                            String.format(
+                                    "There are some pages remained, but scrapping process for this hotel(id : {}) finished. (current : {}, last : {})",
+                                    hotelId,
+                                    currentPage,
+                                    lastPageNumber));
+                }
+
             } while (didReload);
+
+            //  Log
+            log.info("Scraping reviews about hotel(id : {}) failed.", hotelId);
         }
         catch (Exception excp) {
             excp.printStackTrace();
