@@ -1962,7 +1962,7 @@ public class MainApp {
 
 
 //        scrapTripAdvisorReviews(excutors, 6);
-        recoverErrorTripAdvisorReviews(null, 5);
+        recoverErrorTripAdvisorReviews(null, 6);
 //        summaryTripAdvisorHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
 
 //        try {

@@ -227,21 +227,16 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                             break;
                         }
 
-                        System.out.println("########## 1");
-
                         goToReview();
                         if (disableTranslationIfNot()) {
                             didReload = true;
                             break;
                         }
 
-                        System.out.println("########## 2");
                         goToReview();
                         setSeeMoreIfExist();
 
-                        System.out.println("########## 3");
                         goToReview();
-                        Thread.sleep(200);
                         //  사용자 툴팁 윈도우 스크랩
                         result &= scrapTooltip(currentDirHierarchy);
                     }
@@ -290,7 +285,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                             }
 
                             if ((index + 1) == MAX_TRY) {
-                                if (Objects.nonNull(writer)) {  writer.error(String.format("%s:%s", hotelId, currentPage)); }
+                                if (Objects.nonNull(writer)) {  writer.error(String.format("%s:%s:r", hotelId, currentPage)); }
                                 break;
                             }
                         }
