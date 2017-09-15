@@ -1323,7 +1323,7 @@ public class MainApp {
 
                         scraper.setHotelId(hotelId);
                         scraper.setWriter(writer);
-                        scraper.scrap(searchURL, 2L * DateUtils.MILLIS_PER_SECOND);
+                        scraper.scrap(searchURL, 5L * DateUtils.MILLIS_PER_SECOND);
                     }
                 }
                 catch (Exception excp) {
@@ -1429,7 +1429,7 @@ public class MainApp {
 
             //  load hotel-ids
             {
-                String inputFilepath = String.format("%s%sTripAdvisorLinkURL_ORG.txt", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
+                String inputFilepath = String.format("%s%sTripAdvisorLinkURL.txt", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
 
                 BufferedReader reader = new BufferedReader(new FileReader(inputFilepath));
                 while (Objects.nonNull(line = reader.readLine())) {
@@ -1464,7 +1464,7 @@ public class MainApp {
                     thread.start();
                 }
 
-                Thread.sleep(1000L);
+                Thread.sleep(2000L);
             }
         }
         catch (Exception excp) {
@@ -1510,7 +1510,7 @@ public class MainApp {
                     thread.start();
                 }
 
-                Thread.sleep(1000L);
+                Thread.sleep(2000L);
             }
         }
         catch (Exception excp) {
@@ -1747,12 +1747,12 @@ public class MainApp {
 //                        File.separator));
 
 
-        if (StringUtils.isEmpty(System.getProperty(getChromeWebDriverProerty()))) {
-            //  Log
-            log.error("property({}) isn't set.", getChromeWebDriverProerty());
-
-            return;
-        }
+//        if (StringUtils.isEmpty(System.getProperty(getChromeWebDriverProerty()))) {
+//            //  Log
+//            log.error("property({}) isn't set.", getChromeWebDriverProerty());
+//
+//            return;
+//        }
 
         if (!checkSiteTypeVMOptions()) {
             return;
@@ -1960,10 +1960,9 @@ public class MainApp {
          */
 //        extractTripAdvisorHotelReviewURL();
 
-        ExecutorService excutors = Executors.newFixedThreadPool(6);
 
-        recoverErrorTripAdvisorReviews(excutors, 6);
-        scrapTripAdvisorReviews(excutors, 6);
+//        scrapTripAdvisorReviews(excutors, 6);
+        recoverErrorTripAdvisorReviews(null, 5);
 //        summaryTripAdvisorHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
 
 //        try {
