@@ -94,7 +94,8 @@ public class MainApp {
         SITE("--site"),
         HOME_DIR("--homedir"),
         OPRERATOR("--operator"),
-        OPERAND("--operand");
+        OPERAND("--operand"),
+        LINKURLS("--linkurls");
 
         private final String text;
 
@@ -1286,17 +1287,26 @@ public class MainApp {
         return results;
     }
 
+    public synchronized static WebDriver createFireFoxDriver(URL url) {
+        Objects.requireNonNull(url);
+        DesiredCapabilities capabilities = DesiredCapabilities.firefox();
+
+        WebDriver webDriver = new RemoteWebDriver(url, capabilities);
+
+        return webDriver;
+    }
+
     public synchronized static WebDriver createChromeWebDriver(URL url) {
         Objects.requireNonNull(url);
 
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--incognito");
+
         DesiredCapabilities capabilities = DesiredCapabilities.chrome();
         capabilities.setCapability(CapabilityType.ForSeleniumServer.ENSURING_CLEAN_SESSION, true);
         capabilities.setCapability(ChromeOptions.CAPABILITY, options);
 
         WebDriver webDriver = new RemoteWebDriver(url, capabilities);
-        webDriver.manage().window().maximize();
 
         return webDriver;
     }
@@ -1310,6 +1320,7 @@ public class MainApp {
 
                 try {
                     webDriver = createChromeWebDriver(new URL("http://localhost:5555/wd/hub"));
+                    webDriver.manage().window().maximize();
 
                     String workingDirpath = String.format("%s%sReviews", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
                     TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
@@ -1360,11 +1371,12 @@ public class MainApp {
                     WebDriver webDriver = null;
 
                     try {
-                        Capabilities capabilities = DesiredCapabilities.chrome();
-                        webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
+                        webDriver = createChromeWebDriver(new URL("http://localhost:5555/wd/hub"));
+                        webDriver.manage().window().maximize();
 
+                        String workingDirpath = String.format("%s%sReviews", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
                         TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
-                        BasicHTMLFileWriter writer = new BasicHTMLFileWriter(String.format("/Users/sogiro/Google 드라이브/KDI/scrap-Tripadvisor.com/html/reviews_n_tooltips", homeDirpath, File.separator));
+                        BasicHTMLFileWriter writer = new BasicHTMLFileWriter(workingDirpath);
 
                         String errorLog = null;
 
@@ -1443,7 +1455,7 @@ public class MainApp {
 
             //  load hotel-ids
             {
-                String inputFilepath = String.format("%s%sTripAdvisorLinkURL.txt", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
+                String inputFilepath = String.format("%s%sTripAdvisorLinkURL_FULL.txt", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
 
                 BufferedReader reader = new BufferedReader(new FileReader(inputFilepath));
                 while (Objects.nonNull(line = reader.readLine())) {
@@ -1455,9 +1467,10 @@ public class MainApp {
             }
 
             {
+                DateTime dateTime = new DateTime();
                 String errorFilepath = getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews/error.txt";
                 File errorFile = new File(errorFilepath);
-                File newErrorFile = new File(errorFilepath.replace("error.txt", "error.xxxxxx.txt"));
+                File newErrorFile = new File(errorFilepath.replace("error.txt", String.format("error.%s.txt", dateTime.toString("yyyyMMdd-HHmmss"))));
 
                 File finaleErrorFile = errorFile;
                 if (errorFile.renameTo(newErrorFile)) {
@@ -1515,10 +1528,16 @@ public class MainApp {
 
             //  load hotel-ids
             {
-                String inputFilepath = String.format("%s%sTripAdvisorLinkURL.txt", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
+                String inputFilepath = String.format("%s%s%s", System.getProperty(getTripAdvisorHomeProperty()), File.separator, linkURLsFilename);
                 BufferedReader reader = new BufferedReader(new FileReader(inputFilepath));
 
                 while (Objects.nonNull(line = reader.readLine())) {
+                    String trimmed = line.trim();
+
+                    if (trimmed.startsWith("#")) {
+                        continue;
+                    }
+
                     String[] tokens = line.split(":", 2);
                     hotelInfos.put(tokens[0].trim(), tokens[1].trim());
                 }
@@ -1637,6 +1656,7 @@ public class MainApp {
         }
     }
 
+    public static String linkURLsFilename = StringUtils.EMPTY;
 
     public static void main(String[] args) {
         if (args.length < 1) {
@@ -1736,7 +1756,16 @@ public class MainApp {
                     return;
                 }
             }
+            else if (Argument.LINKURLS.toText().equals(args[index])) {
+                ++index;
+
+                if (index < args.length) {
+                    linkURLsFilename = args[index];
+                }
+            }
         }
+
+        log.debug("linkURL filename : ", linkURLsFilename);
 
 
 //        TripAdvisorHome = System.setProperty(
@@ -1813,6 +1842,7 @@ public class MainApp {
                     System.out.println("## TripAdvisor ## Scrap ## Review");
 
                     scrapTripAdvisorReviews(threads);
+                    recoverErrorTripAdvisorReviews(threads);
                 }
                 else {
                     //  error
@@ -2044,7 +2074,6 @@ public class MainApp {
 
 
 //        scrapTripAdvisorReviews(excutors, 6);
-//        recoverErrorTripAdvisorReviews(threads);
 //        summaryTripAdvisorHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
 
 //        try {

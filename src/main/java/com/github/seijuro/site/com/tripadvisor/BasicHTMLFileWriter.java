@@ -78,6 +78,25 @@ public class BasicHTMLFileWriter extends HTMLFileWriter {
         return false;
     }
 
+    public boolean warn(String errorMessage) {
+        StringBuilder pathBuilder = new StringBuilder(root);
+
+        pathBuilder.append(File.separator).append(DefaultErrorFilename);
+        String targetPath = pathBuilder.toString();
+
+
+        try {
+            super.write(targetPath, String.format("# %s%s", errorMessage, System.lineSeparator()), true);
+
+            return true;
+        }
+        catch (Exception excp) {
+            excp.printStackTrace();
+        }
+
+        return false;
+    }
+
     public boolean error(String errorMessage) {
         StringBuilder pathBuilder = new StringBuilder(root);
 
