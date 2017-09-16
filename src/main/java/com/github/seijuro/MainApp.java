@@ -42,6 +42,8 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.remote.CapabilityType;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.remote.RemoteWebDriver;
 
@@ -54,7 +56,6 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 @Log4j2
 public class MainApp {
@@ -146,7 +147,7 @@ public class MainApp {
 
     public enum TripAdvisorScrapOperand implements Operand {
         SEARCH("search"),
-        REVIEWS("review");
+        REVIEW("review");
 
         private final String text;
 
@@ -160,8 +161,8 @@ public class MainApp {
     }
 
     public enum TripAdvisorRecoverOperand implements Operand {
-        SEARCH("page"),
-        REVIEWS("tooltip");;
+        SEARCH("search"),
+        ERROR("error");
 
         private final String text;
 
@@ -1285,17 +1286,30 @@ public class MainApp {
         return results;
     }
 
+    public synchronized static WebDriver createChromeWebDriver(URL url) {
+        Objects.requireNonNull(url);
+
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--incognito");
+        DesiredCapabilities capabilities = DesiredCapabilities.chrome();
+        capabilities.setCapability(CapabilityType.ForSeleniumServer.ENSURING_CLEAN_SESSION, true);
+        capabilities.setCapability(ChromeOptions.CAPABILITY, options);
+
+        WebDriver webDriver = new RemoteWebDriver(url, capabilities);
+        webDriver.manage().window().maximize();
+
+        return webDriver;
+    }
+
     private static List<Thread> createTripAdvisorReviewScraperThread(int threadCount, final LinkedHashMap<String, String> hotelInfos, final Iterator<String> hotelInfoIdIterator) {
         List<Thread> threads = new ArrayList<>();
 
         for (int index = 0; index < threadCount; ++index) {
             threads.add(new Thread(() -> {
                 WebDriver webDriver = null;
-                Capabilities capabilities = DesiredCapabilities.chrome();
 
                 try {
-                    webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
-                    webDriver.manage().window().maximize();
+                    webDriver = createChromeWebDriver(new URL("http://localhost:5555/wd/hub"));
 
                     String workingDirpath = String.format("%s%sReviews", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
                     TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
@@ -1350,7 +1364,7 @@ public class MainApp {
                         webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
 
                         TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
-                        BasicHTMLFileWriter writer = new BasicHTMLFileWriter(String.format("%s%sReviews", homeDirpath, File.separator));
+                        BasicHTMLFileWriter writer = new BasicHTMLFileWriter(String.format("/Users/sogiro/Google 드라이브/KDI/scrap-Tripadvisor.com/html/reviews_n_tooltips", homeDirpath, File.separator));
 
                         String errorLog = null;
 
@@ -1779,17 +1793,26 @@ public class MainApp {
         }
 
 
-        int threads = 7;
+        int threads = 6;
 //        ExecutorService executors = null;
 //        executors = Executors.newFixedThreadPool(threads);
 
+        System.out.println("site : " + siteType.toText());
+        System.out.println("operator : " + operator.toText());
+        System.out.println("operand : " + operand.toText());
+
         //  trip advisor
         if (siteType == SiteType.TRIPADVISOR) {
-            if (operator == Operator.SCRAP) {
-                if (operand == TripAdvisorScrapOperand.SEARCH) {
+            System.out.println("## TripAdvisor");
 
+            if (operator == Operator.SCRAP) {
+                System.out.println("## TripAdvisor ## Scrap");
+                if (operand == TripAdvisorScrapOperand.SEARCH) {
+                    System.out.println("## TripAdvisor ## Scrap ## Search");
                 }
-                else if (operand == TripAdvisorScrapOperand.REVIEWS) {
+                else if (operand == TripAdvisorScrapOperand.REVIEW) {
+                    System.out.println("## TripAdvisor ## Scrap ## Review");
+
                     scrapTripAdvisorReviews(threads);
                 }
                 else {
@@ -1797,10 +1820,13 @@ public class MainApp {
                 }
             }
             else if (operator == Operator.RECOVER) {
-                if (operand == TripAdvisorRecoverOperand.SEARCH) {
+                System.out.println("## TripAdvisor ## Recover");
 
+                if (operand == TripAdvisorRecoverOperand.SEARCH) {
+                    System.out.println("## TripAdvisor ## Recover ## Search");
                 }
-                else if (operand == TripAdvisorRecoverOperand.REVIEWS) {
+                else if (operand == TripAdvisorRecoverOperand.ERROR) {
+                    System.out.println("## TripAdvisor ## Review");
                     recoverErrorTripAdvisorReviews(threads);
                 }
                 else {
@@ -2017,7 +2043,9 @@ public class MainApp {
 //        extractTripAdvisorHotelReviewURL();
 //        scrapTripAdvisorReviews(threads);
 
-        recoverErrorTripAdvisorReviews(threads);
+
+//        scrapTripAdvisorReviews(excutors, 6);
+//        recoverErrorTripAdvisorReviews(threads);
 //        summaryTripAdvisorHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
 
 //        try {
