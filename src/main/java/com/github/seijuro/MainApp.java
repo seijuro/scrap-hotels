@@ -1429,7 +1429,7 @@ public class MainApp {
 
             //  load hotel-ids
             {
-                String inputFilepath = String.format("%s%sTripAdvisorLinkURL.txt", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
+                String inputFilepath = String.format("%s%sTripAdvisorLinkURL_REMAIN.txt", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
 
                 BufferedReader reader = new BufferedReader(new FileReader(inputFilepath));
                 while (Objects.nonNull(line = reader.readLine())) {
@@ -1441,9 +1441,10 @@ public class MainApp {
             }
 
             {
+                DateTime dateTime = new DateTime();
                 String errorFilepath = getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews/error.txt";
                 File errorFile = new File(errorFilepath);
-                File newErrorFile = new File(errorFilepath.replace("error.txt", "error.xxxxxx.txt"));
+                File newErrorFile = new File(errorFilepath.replace("error.txt", String.format("error.%s.txt", dateTime.toString("yyyyMMdd-HHmmss"))));
 
                 File finaleErrorFile = errorFile;
                 if (errorFile.renameTo(newErrorFile)) {
