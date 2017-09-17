@@ -1502,6 +1502,13 @@ public class MainApp {
 
                 Thread.sleep(2000L);
             }
+
+            //  threads start
+            for (Thread thread : threads) {
+                thread.join();
+
+                Thread.sleep(2000L);
+            }
         }
         catch (Exception excp) {
             excp.printStackTrace();
@@ -1841,6 +1848,7 @@ public class MainApp {
                 else if (operand == TripAdvisorScrapOperand.REVIEW) {
                     System.out.println("## TripAdvisor ## Scrap ## Review");
 
+                    recoverErrorTripAdvisorReviews(threads);
                     scrapTripAdvisorReviews(threads);
                     recoverErrorTripAdvisorReviews(threads);
                 }

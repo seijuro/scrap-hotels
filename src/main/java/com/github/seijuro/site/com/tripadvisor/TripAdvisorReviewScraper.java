@@ -475,6 +475,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
             log.error("Can not redirect to the speified page (hotel-id : {}, page# : {}).", hotelId, pageNumber);
 
             writer.error(String.format("#recover[failed] -> %s:%d", hotelId, pageNumber));
+            scrap(ScrapType.SCRAP_FROM_PAGE, searchURL, 1, sleepMillis);
         }
     }
 
