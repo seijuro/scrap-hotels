@@ -256,9 +256,9 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         }
 
         currentPage = pageNumber;
+        int nextPageNumber = currentPage;
         boolean didReload = false;
-        boolean hasNextPage = scrapType == ScrapType.SCRAP_THE_ONLY_SPECIFIED_PAGE ? false : true;
-        int lastPageNumber = getLastPageNumber();
+        int lastPageNumber = 1;
 
         try {
             do {
@@ -273,22 +273,24 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                     }
                 }
 
+                lastPageNumber = getLastPageNumber();
+
                 //  리뷰 리스트 순회
                 do {
                     String pageName;
                     String[] currentDirHierarchy;
 
                     try {
-                        //  check has next page & current page ...
-                        WebElement nextReviewPageLink = getNextReviewPageLinkIfExists();
-                        hasNextPage = Objects.nonNull(nextReviewPageLink) ? true : false;
-
+                        //  for pagination
                         currentPage = getCurrentPageNumber();
+                        nextPageNumber = currentPage;   // sync
+                        //  for writing data & log
                         pageName = String.format("%04d", currentPage);
                         currentDirHierarchy = new String[]{hotelId, pageName};
-
+                        //  for iterating reviews
                         List<String> reviewSelectorIds = getReviewSelectorIds();
 
+                        //  Log
                         log.debug("reviews count : {}", reviewSelectorIds.size());
 
                         //  리뷰가 없는 경우
@@ -310,7 +312,8 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
                         goToReview();
                         //  사용자 툴팁 윈도우 스크랩
-                        scrapTooltip(currentDirHierarchy);
+//                        scrapTooltip(currentDirHierarchy);
+                        scrapTooltipByReviewId();
 
                         //  scrap HTML page source ...
                         log.debug("Scrap 'HTML' page source ...");
@@ -329,12 +332,11 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                         WebElement nextReviewPageLink = getNextReviewPageLinkIfExists();
                         if (Objects.nonNull(nextReviewPageLink)) {
                             Thread.sleep(500);
-                            hasNextPage = true;
 
                             for (int index = 0; index < 2; ++index) {
                                 try {
                                     nextReviewPageLink.click();
-                                    currentPage = Integer.parseInt(nextReviewPageLink.getAttribute("data-page-number"));
+                                    nextPageNumber = Integer.parseInt(nextReviewPageLink.getAttribute("data-page-number"));
                                     break;
                                 }
                                 catch (Exception excp) {
@@ -350,7 +352,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                             }
 
                             //  Log
-                            log.debug("Waiting for reloading & scrolling to the top of reviews ...", currentPage, currentPage + 1);
+                            log.debug("Waiting for reloading & scrolling to the top of reviews ...", currentPage, nextPageNumber);
 
                             Thread.sleep(WAIT_MILLIS_4_SECOND);
                         }
@@ -358,27 +360,22 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                             break;
                         }
                     }
-                    else {
-                        //  force
-                        hasNextPage = false;
-                    }
 
                     //  Log
                     log.info("[PROGRESS] Scapped review page ... {} : ({} / {})", hotelId, currentPage, lastPageNumber);
-                } while (hasNextPage);
+                } while ((scrapType == ScrapType.SCRAP_FROM_PAGE) && (currentPage < lastPageNumber));
 
                 //  check
                 if (!didReload &&
                         (scrapType == ScrapType.SCRAP_FROM_PAGE) &&
                         currentPage < lastPageNumber) {
-                    writeError(hotelId, currentPage, true,
+                    writeError(hotelId, nextPageNumber, true,
                             String.format(
                                     "There are some pages remained, but scrapping process for this hotel(id : %s) finished. (current : %d, last : %d)",
                                     hotelId,
                                     currentPage,
                                     lastPageNumber));
                 }
-
             } while (didReload);
 
             //  Log
@@ -437,7 +434,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                 //  Log
                 log.error("Can not redirect to the speified page (hotel-id : {}, page# : {}).", hotelId, pageNumber);
 
-                writer.error(String.format("#recover[failed] -> %s:%d", hotelId, pageNumber));
+                writer.warn(String.format("# [FAILED] Error logs : \"%s:%d\", reason : page, %d, seems to be not available.", hotelId, pageNumber));
             }
         }
         else {
@@ -650,6 +647,126 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         return result;
     }
 
+    public boolean scrapTooltipByReviewId() throws InterruptedException {
+        WebDriver webDriver = getDriver();
+        JavascriptExecutor js = (JavascriptExecutor)webDriver;
+
+        List<String> reviewSelectorIds = getReviewSelectorIds();
+        boolean result = true;
+
+        for (String reviewSelecrId : reviewSelectorIds) {
+            for (int index = 0; index < MAX_TRY; ++index) {
+                try {
+                    WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS"));
+                    WebElement reviewSelector = reviewsElement.findElement(By.id(reviewSelecrId));
+
+                    String reviewId = reviewSelector.getAttribute("data-reviewid");
+
+                    //  Log
+                    log.debug("reviewId : {}", reviewId);
+
+                    List<WebElement> uiColumnGroupElements = reviewSelector.findElements(By.cssSelector("div.review.hsx_review.ui_columns"));
+                    if (uiColumnGroupElements.size() > 0) {
+                        List<WebElement> uiColumnElements = uiColumnGroupElements.get(0).findElements(By.cssSelector("div.ui_column"));
+
+                        WebElement userInfoColumn = uiColumnElements.get(0);
+
+                        List<WebElement> memberOverlayLinklement = userInfoColumn.findElements(By.cssSelector("div.memberOverlayLink"));
+
+                        if (memberOverlayLinklement.size() > 0) {
+                            WebElement memberOverlayLink = memberOverlayLinklement.get(0);
+
+                            String reviewerId = memberOverlayLink.getAttribute("id");
+                            if (StringUtils.isNotEmpty(reviewerId)) {
+                                String[] tokens = reviewerId.split("-");
+                                String uid = tokens[0];
+                                final String reviewerDirname = "Reviewers";
+
+                                if (!writer.exists(new String[] {reviewerDirname, String.format("%s.html", uid)})) {
+                                    //  사용자 정보 툴립 팝업 로딩을 위한 마우스 액션
+                                    Actions mouseOverAction = new Actions(webDriver);
+                                    mouseOverAction.moveToElement(memberOverlayLink).build().perform();
+                                    //  사용자 정보 툴립 팝업 로딩
+                                    Thread.sleep(WAIT_MILLIS_1_SECOND);
+
+                                    for (int index2 = 0; index2 < MAX_TRY; ++index2) {
+                                        try {
+                                            List<WebElement> tootipElements = webDriver.findElements(By.cssSelector("body span.ui_overlay.ui_popover.arrow_left"));
+                                            if (tootipElements.size() > 0) {
+                                                WebElement tootipElement = tootipElements.get(0);
+                                                String tooltipHTML = tootipElement.getAttribute("innerHTML");
+
+                                                if (StringUtils.normalizeSpace(tootipElement.getText()).length() == 0) {
+                                                    //  log
+                                                    log.debug("[WAIT] additional 1 sec, reason : [seems to be loading isn't finished yet]");
+
+                                                    Thread.sleep((index2 + 1L) * DateUtils.MILLIS_PER_SECOND);
+
+                                                    continue;
+                                                }
+
+                                                if (Objects.nonNull(writer)) {
+                                                    log.debug("[SCRAP] Scrapping reviewer's profile ... {}, [{}]", uid,
+                                                            writer.write(new String[]{reviewerDirname}, String.format("%s.html", uid), "<html>" + tooltipHTML + "</html>") ? "DONE" : "FAILED");
+                                                }
+                                            }
+
+                                            break;
+                                        }
+                                        catch (Exception excp) {
+                                            if (index2 < (MAX_TRY + 1)) {
+                                                Thread.sleep(1L * DateUtils.MILLIS_PER_SECOND);
+                                            }
+                                            else {
+                                                //  Log
+                                                log.error("[ERROR] During try to scrap tooltip window for review profile, catched exception -> {}", excp.getMessage());
+
+                                                throw excp;
+                                            }
+                                        }
+                                    }
+
+                                    //  사용자 정보 툴팁 닫기 위한 마우스 액션
+                                    Actions mouseOffAction = new Actions(webDriver);
+                                    mouseOffAction.moveByOffset(memberOverlayLink.getLocation().getX() * -1, 0).build().perform();
+                                    Thread.sleep(100);
+                                }
+                                else {
+                                    log.debug("[SCRAP][SKIP] Skip scrapping reviewer's profile ... {} : (reason : [EXISTS / SCRAPPED])", uid);
+                                }
+                            }
+                        }
+                    }
+
+                    //  다음 리뷰 or 페이지 네비게이션으로 이동
+                    int scrollY = reviewSelector.getSize().getHeight();
+                    log.debug("Scroll to 'current review'  view ...");
+                    for (int i = 0; i < scrollY / 20; i++) {
+                        js.executeScript("window.scrollBy(0,20)", "");
+                    }
+
+                    //  don't retry!
+                    break;
+                }
+                catch (InterruptedException excp) {
+                    throw excp;
+                }
+                catch (Exception excp) {
+                    //  Log
+                    log.error("Failed to find review selector (id : {}) ... ({} / {})", reviewSelecrId, index + 1, MAX_TRY);
+                    Thread.sleep(WAIT_MILLIS_1_SECOND);
+                }
+
+                //  MAX_TRY 시도 이내에 툴팁을 스크랩하지 못 한 경우, 재수집을 위한 실패로 간주.
+                if ((index + 1) == MAX_TRY) {
+                    return false;
+                }
+            }   //  retry block
+        }
+
+        return result;
+    }
+
     /**
      * Find IDs of all review elements. The review elements can be newly generated depends on events (click some buttons, review page reloading etc ...).
      * Therefore, greping the reference of review elements poses a growing risk with exception, such as broken reference(s).
@@ -799,8 +916,11 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
                     for (int index = 0; index < MAX_TRY; ++index) {
                         try {
-                            log.debug("Click 'More' button & wait for loading : {} ms", sleepMillis);
                             moreButtonElements.get(0).click();
+
+                            //  log
+                            log.debug("[CLICK] Clickable element ... {} : (value : 'see more ...') ", hotelId);
+
                             //  Wait for realoding reviews
                             Thread.sleep(WAIT_MILLIS_4_SECOND);
 
@@ -811,13 +931,13 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                                 Thread.sleep(WAIT_MILLIS_1_SECOND);
                             }
                             else {
-                                throw new Exception("Click see 'more' button failed.");
+                                throw new Exception(String.format("[CLICK] button, 'see more ...', failed. (hotel id : %s).", hotelId));
                             }
-                        }   //  try
-                    }   //  for
-                }
-            }
-        }
+                        }   //  try-catch
+                    }   //  for [ 1 to MAX_TRY ]
+                }   //  if [ element-list.size is bigger than 0 ]
+            }   //  if [ uiColumnGroup exists ]
+        }   // for [ review id ]
 
         return false;
     }
@@ -924,7 +1044,10 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                 if (Objects.isNull(allLanguageElement.getAttribute("checked"))) {
                     allLanguageElement.click();
 
-                    Thread.sleep(WAIT_MILLIS_1_SECOND);
+                    //  log
+                    log.info("[CLICK] 'Language' button ... {} (value : 'ALL') ", hotelId);
+
+                    Thread.sleep(WAIT_MILLIS_3_SECOND);
                 }
             }
 
