@@ -704,7 +704,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                                                 }
 
                                                 if (Objects.nonNull(writer)) {
-                                                    log.debug("[REVIEWER] Scrapping review's profile ... {}, [{}]", uid,
+                                                    log.debug("[SCRAP] Scrapping reviewer's profile ... {}, [{}]", uid,
                                                             writer.write(new String[]{reviewerDirname}, String.format("%s.html", uid), "<html>" + tooltipHTML + "</html>") ? "DONE" : "FAILED");
                                                 }
                                             }
@@ -730,7 +730,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                                     Thread.sleep(100);
                                 }
                                 else {
-                                    log.debug("[REVIEWER] Skip scrapping review's profile ... {} : (reason : [EXISTS / SCRAPPED])", uid);
+                                    log.debug("[SCRAP][SKIP] Skip scrapping reviewer's profile ... {} : (reason : [EXISTS / SCRAPPED])", uid);
                                 }
                             }
                         }
