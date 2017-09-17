@@ -1459,7 +1459,10 @@ public class MainApp {
 
             //  load hotel-ids
             {
-                String inputFilepath = String.format("%s%sTripAdvisorLinkURL_FULL.txt", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
+                String inputFilepath = String.format("%s%s%s", System.getProperty(getTripAdvisorHomeProperty()), File.separator, linkURLsFilename);
+
+                //  Log
+                log.debug("input Filepath : {}", inputFilepath);
 
                 BufferedReader reader = new BufferedReader(new FileReader(inputFilepath));
                 while (Objects.nonNull(line = reader.readLine())) {
@@ -1472,7 +1475,7 @@ public class MainApp {
 
             {
                 DateTime dateTime = new DateTime();
-                String errorFilepath = getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews/error.txt";
+                String errorFilepath = String.format("%s%sReviews/error.txt", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
                 File errorFile = new File(errorFilepath);
                 File newErrorFile = new File(errorFilepath.replace("error.txt", String.format("error.%s.txt", dateTime.toString("yyyyMMdd-HHmmss"))));
 
@@ -1506,6 +1509,11 @@ public class MainApp {
 
                 Thread.sleep(2000L);
             }
+
+            for (Thread thread : threads) {
+                thread.join();
+            }
+
         }
         catch (Exception excp) {
             excp.printStackTrace();
@@ -1829,9 +1837,10 @@ public class MainApp {
 //        ExecutorService executors = null;
 //        executors = Executors.newFixedThreadPool(threads);
 
-        System.out.println("site : " + siteType.toText());
-        System.out.println("operator : " + operator.toText());
-        System.out.println("operand : " + operand.toText());
+        log.info("site : {}", siteType.toText());
+        log.info("operator : {}", operator.toText());
+        log.info("operand : {}", operand.toText());
+        log.info("linkurls : {}", linkURLsFilename);
 
         //  trip advisor
         if (siteType == SiteType.TRIPADVISOR) {
@@ -1845,6 +1854,7 @@ public class MainApp {
                 else if (operand == TripAdvisorScrapOperand.REVIEW) {
                     System.out.println("## TripAdvisor ## Scrap ## Review");
 
+                    recoverErrorTripAdvisorReviews(threads);
                     scrapTripAdvisorReviews(threads);
                     recoverErrorTripAdvisorReviews(threads);
                 }
