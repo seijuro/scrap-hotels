@@ -1292,11 +1292,11 @@ public class MainApp {
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--incognito");
         DesiredCapabilities capabilities = DesiredCapabilities.chrome();
-        capabilities.setCapability(CapabilityType.ForSeleniumServer.ENSURING_CLEAN_SESSION, true);
-        capabilities.setCapability(ChromeOptions.CAPABILITY, options);
+//        capabilities.setCapability(CapabilityType.ForSeleniumServer.ENSURING_CLEAN_SESSION, true);
+//        capabilities.setCapability(ChromeOptions.CAPABILITY, options);
 
         WebDriver webDriver = new RemoteWebDriver(url, capabilities);
-        webDriver.manage().window().maximize();
+//        webDriver.manage().window().maximize();
 
         return webDriver;
     }
@@ -1331,6 +1331,8 @@ public class MainApp {
 
                         if (writer.exists(new String[] {hotelId})) { continue; }
 
+                        Thread.sleep(3L * DateUtils.MILLIS_PER_SECOND);
+
                         scraper.setHotelId(hotelId);
                         scraper.setWriter(writer);
                         scraper.scrap(searchURL, 5L * DateUtils.MILLIS_PER_SECOND);
@@ -1363,8 +1365,9 @@ public class MainApp {
                         Capabilities capabilities = DesiredCapabilities.chrome();
                         webDriver = new RemoteWebDriver(new URL("http://localhost:5555/wd/hub"), capabilities);
 
+                        String workingDirpath = String.format("%s%sReviews", System.getProperty(getTripAdvisorHomeProperty()), File.separator);
                         TripAdvisorReviewScraper scraper = new TripAdvisorReviewScraper(webDriver);
-                        BasicHTMLFileWriter writer = new BasicHTMLFileWriter(String.format("/Users/sogiro/Google 드라이브/KDI/scrap-Tripadvisor.com/html/reviews_n_tooltips", homeDirpath, File.separator));
+                        BasicHTMLFileWriter writer = new BasicHTMLFileWriter(workingDirpath);
 
                         String errorLog = null;
 
@@ -1386,6 +1389,8 @@ public class MainApp {
                                 int pageNumber = Integer.parseInt(StringUtils.stripToEmpty(tokens[1]));
 
                                 log.debug("hotel-id : {}, page# : {}, url : {}", hotelId, pageNumber, searchURL);
+
+                                Thread.sleep(3L * DateUtils.MILLIS_PER_SECOND);
 
                                 scraper.setHotelId(hotelId);
                                 scraper.setWriter(writer);
@@ -1793,7 +1798,7 @@ public class MainApp {
         }
 
 
-        int threads = 6;
+        int threads = 7;
 //        ExecutorService executors = null;
 //        executors = Executors.newFixedThreadPool(threads);
 
@@ -2045,7 +2050,7 @@ public class MainApp {
 
 
 //        scrapTripAdvisorReviews(excutors, 6);
-//        recoverErrorTripAdvisorReviews(threads);
+        recoverErrorTripAdvisorReviews(threads);
 //        summaryTripAdvisorHotelReviews(getUserHomePath() + "/Desktop/TripAdvisor.com/Reviews");
 
 //        try {

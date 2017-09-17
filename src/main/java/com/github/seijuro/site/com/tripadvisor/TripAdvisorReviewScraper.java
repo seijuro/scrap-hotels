@@ -15,7 +15,7 @@ import java.util.*;
 @Log4j2
 public class TripAdvisorReviewScraper extends AbstractScraper {
     @Getter
-    public static final long DefaultSleepMillis = 5L * DateUtils.MILLIS_PER_SECOND;
+    public static final long DefaultSleepMillis = 7L * DateUtils.MILLIS_PER_SECOND;
 
     public static final long WAIT_MILLIS_1_SECOND = 1000L;
     public static final long WAIT_MILLIS_1_5_SECOND = 1500L;
@@ -154,19 +154,23 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
     private int getLastPageNumber() {
         WebDriver webDriver = getDriver();
 
-        WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS "));
-        List<WebElement> pagenationElements = reviewsElement.findElements(By.cssSelector("div.prw_rup.prw_common_north_star_pagination"));
+        try {
+            WebElement reviewsElement = webDriver.findElement(By.cssSelector("div#REVIEWS "));
+            List<WebElement> pagenationElements = reviewsElement.findElements(By.cssSelector("div.prw_rup.prw_common_north_star_pagination"));
 
-        if (pagenationElements.size() > 0) {
-            WebElement pagenationElement = pagenationElements.get(0);
-            List<WebElement> lastPageNumberElements = pagenationElement.findElements(By.cssSelector("div.unified.pagination.north_star div.pageNumbers span.pageNum.last"));
+            if (pagenationElements.size() > 0) {
+                WebElement pagenationElement = pagenationElements.get(0);
+                List<WebElement> lastPageNumberElements = pagenationElement.findElements(By.cssSelector("div.unified.pagination.north_star div.pageNumbers span.pageNum.last"));
 
-            if (lastPageNumberElements.size() > 0) {
-                WebElement lastPageNumber = lastPageNumberElements.get(0);
+                if (lastPageNumberElements.size() > 0) {
+                    WebElement lastPageNumber = lastPageNumberElements.get(0);
 
-                String pageNumberText = lastPageNumber.getAttribute("data-page-number");
-                return Integer.parseInt(StringUtils.normalizeSpace(pageNumberText));
+                    String pageNumberText = lastPageNumber.getAttribute("data-page-number");
+                    return Integer.parseInt(StringUtils.normalizeSpace(pageNumberText));
+                }
             }
+        }
+        catch (Exception excp) {
         }
 
         return 1;
@@ -350,9 +354,13 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
 
                             Thread.sleep(WAIT_MILLIS_4_SECOND);
                         }
+                        else {
+                            break;
+                        }
                     }
-                    else{
-                        break;
+                    else {
+                        //  force
+                        hasNextPage = false;
                     }
 
                     //  Log
@@ -360,11 +368,12 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                 } while (hasNextPage);
 
                 //  check
-                if ((scrapType == ScrapType.SCRAP_FROM_PAGE) &&
+                if (!didReload &&
+                        (scrapType == ScrapType.SCRAP_FROM_PAGE) &&
                         currentPage < lastPageNumber) {
-                    writeError(hotelId, currentPage, false,
+                    writeError(hotelId, currentPage, true,
                             String.format(
-                                    "There are some pages remained, but scrapping process for this hotel(id : {}) finished. (current : {}, last : {})",
+                                    "There are some pages remained, but scrapping process for this hotel(id : %s) finished. (current : %d, last : %d)",
                                     hotelId,
                                     currentPage,
                                     lastPageNumber));
@@ -378,10 +387,10 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
         catch (Exception excp) {
             excp.printStackTrace();
 
-            boolean naviOpt = true;
+            boolean naviOpt = false;
             if ((currentPage < lastPageNumber) &&
                     (scrapType == ScrapType.SCRAP_FROM_PAGE)) {
-                naviOpt = false;
+                naviOpt = true;
             }
 
             writeError(hotelId, currentPage, naviOpt);
