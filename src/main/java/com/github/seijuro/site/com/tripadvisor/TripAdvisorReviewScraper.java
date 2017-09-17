@@ -15,7 +15,7 @@ import java.util.*;
 @Log4j2
 public class TripAdvisorReviewScraper extends AbstractScraper {
     @Getter
-    public static final long DefaultSleepMillis = 5L * DateUtils.MILLIS_PER_SECOND;
+    public static final long DefaultSleepMillis = 7L * DateUtils.MILLIS_PER_SECOND;
 
     public static final long WAIT_MILLIS_1_SECOND = 1000L;
     public static final long WAIT_MILLIS_1_5_SECOND = 1500L;
@@ -171,7 +171,6 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
             }
         }
         catch (Exception excp) {
-            //  do nothing
         }
 
         return 1;
@@ -356,6 +355,9 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                             log.debug("Waiting for reloading & scrolling to the top of reviews ...", currentPage, nextPageNumber);
 
                             Thread.sleep(WAIT_MILLIS_4_SECOND);
+                        }
+                        else {
+                            break;
                         }
                     }
 
