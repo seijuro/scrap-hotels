@@ -431,10 +431,7 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
                 scrap(ScrapType.SCRAP_THE_ONLY_SPECIFIED_PAGE, redirectURL, pageNumber, sleepMillis);
             }
             else {
-                //  Log
-                log.error("Can not redirect to the speified page (hotel-id : {}, page# : {}).", hotelId, pageNumber);
-
-                writer.warn(String.format("# [FAILED] Error logs : \"%s:%d\", reason : page, %d, seems to be not available.", hotelId, pageNumber));
+                writeError(hotelId, pageNumber, false, String.format("Can not redirect to the page whose page number is %s (hotel id : %s).", pageNumber, hotelId));
             }
         }
         else {
@@ -473,11 +470,12 @@ public class TripAdvisorReviewScraper extends AbstractScraper {
             scrap(ScrapType.SCRAP_FROM_PAGE, redirectURL, pageNumber, sleepMillis);
         }
         else {
-            //  Log
-            log.error("Can not redirect to the speified page (hotel-id : {}, page# : {}).", hotelId, pageNumber);
-
-            writer.error(String.format("#recover[failed] -> %s:%d", hotelId, pageNumber));
-            scrap(ScrapType.SCRAP_FROM_PAGE, searchURL, 1, sleepMillis);
+            if (pageNumber == 1) {
+                scrap(ScrapType.SCRAP_FROM_PAGE, searchURL, 1, sleepMillis);
+            }
+            else /* if (pageNumber > 1) */ {
+                writeError(hotelId, pageNumber, true, String.format("Can not redirect to the page whose page number is %s (hotel id : %s).", pageNumber, hotelId));
+            }
         }
     }
 
